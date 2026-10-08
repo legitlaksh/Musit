@@ -118,14 +118,16 @@ class InnerTubeMusicSource @Inject constructor(
                 .get()
                 .build()
             client.newCall(request).execute().use { response ->
-                val html = response.body.string()
-                // INNERTUBE_API_KEY":"AIza...
-                val match = Regex("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([^\"]+)\"")
-                    .find(html)
-                val key = match?.groupValues?.get(1)
-                if (key != null) {
-                    cachedApiKey = key
-                    return@withContext key
+                val html = response.body?.string()
+                if (html != null) {
+                    // INNERTUBE_API_KEY":"AIza...
+                    val match = Regex("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([^\"]+)\"")
+                        .find(html)
+                    val key = match?.groupValues?.get(1)
+                    if (key != null) {
+                        cachedApiKey = key
+                        return@withContext key
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -248,7 +250,7 @@ class InnerTubeMusicSource @Inject constructor(
     // ------------------------------------------------------------------
 
     /** Resolves a raw (unvalidated) audio URL via one player client. Null if none. */
-    private fun resolveViaClient(songId: String, playerClient: PlayerClient): String? {
+    private suspend fun resolveViaClient(songId: String, playerClient: PlayerClient): String? {
         val clientJson = JSONObject()
             .put("clientName", playerClient.name)
             .put("clientVersion", playerClient.version)
