@@ -6,8 +6,8 @@ import com.musit.player.data.local.AppDatabase
 import com.musit.player.data.repository.LibraryRepository
 import com.musit.player.data.repository.MusicRepository
 import com.musit.player.data.store.SettingsStore
+import com.musit.player.network.InnerTubeMusicSource
 import com.musit.player.network.MusicSource
-import com.musit.player.network.NewPipeMusicSource
 import com.musit.player.player.Media3PlaybackRepository
 import com.musit.player.player.PlaybackRepository
 import dagger.Module
@@ -27,7 +27,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMusicSource(impl: NewPipeMusicSource): MusicSource = impl
+    fun provideMusicSource(impl: InnerTubeMusicSource): MusicSource = impl
 
     // ------------------------------------------------------------------
     // database
