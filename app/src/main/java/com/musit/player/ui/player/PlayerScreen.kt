@@ -37,6 +37,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -247,7 +249,9 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Secondary controls: shuffle / queue / repeat
+            // Secondary controls: shuffle / queue / repeat / sleep timer
+            var showSleepDialog by remember { mutableStateOf(false) }
+            val sleepActive by viewModel.sleepTimer.isActive.collectAsStateWithLifecycle()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -276,6 +280,54 @@ fun PlayerScreen(
                         else MaterialTheme.colorScheme.primary
                     )
                 }
+                IconButton(onClick = { showSleepDialog = true }) {
+                    Icon(
+                        Icons.Filled.Timer,
+                        contentDescription = "Sleep timer",
+                        tint = if (sleepActive) MaterialTheme.colorScheme.primary
+                        else Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            // Sleep timer dialog
+            if (showSleepDialog) {
+                AlertDialog(
+                    onDismissRequest = { showSleepDialog = false },
+                    title = { Text("Sleep timer") },
+                    text = {
+                        Column {
+                            listOf(15, 30, 45, 60).forEach { mins ->
+                                TextButton(
+                                    onClick = {
+                                        viewModel.sleepTimer.start(mins)
+                                        showSleepDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("$mins minutes")
+                                }
+                            }
+                            if (sleepActive) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.sleepTimer.cancel()
+                                        showSleepDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Cancel timer", color = Color.Red)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showSleepDialog = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(4.dp))
