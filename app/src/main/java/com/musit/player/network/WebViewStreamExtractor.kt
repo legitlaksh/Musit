@@ -33,6 +33,45 @@ class WebViewStreamExtractor @Inject constructor(
     }
 
     /**
+     * Parses the player_response JSON to find an audio-only stream URL.
+     * Looks in streamingData.adaptiveFormats for audio mime types.
+     */
+    private fun parseAudioUrlFromPlayerResponse(jsonStr: String): String? {
+        return try {
+            // Remove JSON string escaping from evaluateJavascript result
+            val cleanJson = jsonStr
+                .removeSurrounding("\"")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+            val root = org.json.JSONObject(cleanJson)
+            val streamingData = root.optJSONObject("streamingData") ?: return null
+            val formats = streamingData.optJSONArray("adaptiveFormats") ?: return null
+
+            // Prefer audio-only formats (mimeType starts with "audio/")
+            for (i in 0 until formats.length()) {
+                val f = formats.getJSONObject(i)
+                val mime = f.optString("mimeType", "")
+                val url = f.optString("url", "")
+                if (mime.startsWith("audio/") && url.isNotEmpty()) {
+                    return url
+                }
+            }
+            // Fallback: check formats array too
+            val formats2 = streamingData.optJSONArray("formats")
+            if (formats2 != null) {
+                for (i in 0 until formats2.length()) {
+                    val f = formats2.getJSONObject(i)
+                    val url = f.optString("url", "")
+                    if (url.isNotEmpty()) return url
+                }
+            }
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
      * Extracts the audio stream URL for [videoId] by intercepting the WebView's
      * network requests, or null if unavailable.
      * Must be called from a coroutine; WebView operations run on the main thread.
@@ -98,22 +137,56 @@ class WebViewStreamExtractor @Inject constructor(
 
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
-                                // Try to trigger audio loading by playing the video
-                                // (muted, we just want the URL, not the audio)
+                                // Extract player_response JSON which contains stream URLs.
+                                // This is more reliable than intercepting network requests.
                                 view?.evaluateJavascript(
                                     """
                                     (function() {
                                         try {
-                                            var v = document.querySelector('video');
-                                            if (v) {
-                                                v.muted = true;
-                                                v.play().catch(function(){});
+                                            // Try multiple ways to get player response
+                                            var pr = null;
+                                            if (window.ytplayer && window.ytplayer.config && window.ytplayer.config.args) {
+                                                pr = window.ytplayer.config.args.player_response;
                                             }
-                                        } catch(e) {}
+                                            if (!pr && window.ytInitialPlayerResponse) {
+                                                pr = JSON.stringify(window.ytInitialPlayerResponse);
+                                            }
+                                            if (!pr) {
+                                                // Parse from page HTML
+                                                var html = document.documentElement.innerHTML;
+                                                var m = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
+                                                if (m) pr = m[1];
+                                            }
+                                            return pr || 'null';
+                                        } catch(e) { return 'error:' + e.message; }
                                     })();
-                                    """.trimIndent(),
-                                    null
-                                )
+                                    """.trimIndent()
+                                ) { result ->
+                                    try {
+                                        if (result != null && result != "null" && !result.startsWith("error")) {
+                                            // Parse the JSON and find audio stream URL
+                                            val audioUrl = parseAudioUrlFromPlayerResponse(result)
+                                            if (audioUrl != null) {
+                                                finish(audioUrl)
+                                                return@evaluateJavascript
+                                            }
+                                        }
+                                        // Fallback: try to trigger video play to generate network requests
+                                        view?.evaluateJavascript(
+                                            """
+                                            (function() {
+                                                try {
+                                                    var v = document.querySelector('video');
+                                                    if (v) { v.muted = true; v.play().catch(function(){}); }
+                                                } catch(e) {}
+                                            })();
+                                            """.trimIndent(),
+                                            null
+                                        )
+                                    } catch (e: Exception) {
+                                        // Continue waiting for network interception
+                                    }
+                                }
                             }
                         }
 
