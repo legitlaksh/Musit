@@ -49,6 +49,13 @@ object PlayerManager {
     private val _durationMs = MutableStateFlow(0L)
     val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
 
+    private val _playerError = MutableStateFlow<String?>(null)
+    val playerError: StateFlow<String?> = _playerError.asStateFlow()
+
+    fun clearError() {
+        _playerError.value = null
+    }
+
     private val queue = mutableListOf<Song>()
     private var queueIndex = -1
 
@@ -109,6 +116,7 @@ object PlayerManager {
         _currentSong.value = song
         _positionMs.value = 0L
         _durationMs.value = 0L
+        _playerError.value = null
         _isLoading.value = true
 
         scope.launch {
@@ -118,6 +126,7 @@ object PlayerManager {
             val c = controller
             if (url.isNullOrEmpty() || c == null) {
                 _isLoading.value = false
+                _playerError.value = "Couldn't play this song. Try another one."
                 return@launch
             }
             val metadata = MediaMetadata.Builder()
