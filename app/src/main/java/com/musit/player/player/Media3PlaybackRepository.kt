@@ -469,12 +469,13 @@ class Media3PlaybackRepository @Inject constructor(
             // Spotify-style autoplay: queue ended, fetch more songs and continue
             scope.launch {
                 try {
-                    val more = music.getTrending().getOrNull().orEmpty()
+                    val more = music.trending().getOrNull().orEmpty()
                         .filter { s -> queueSongs.none { it.id == s.id } }
                         .take(10)
                     if (more.isNotEmpty()) {
-                        queueSongs = queueSongs + more
-                        queueIndex = queueSongs.size - more.size
+                        val startIndex = queueSongs.size
+                        queueSongs.addAll(more)
+                        queueIndex = startIndex
                         rebuildShuffleOrder()
                         retriedCurrent = false
                         loadCurrent()
