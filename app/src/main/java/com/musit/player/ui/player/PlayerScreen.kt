@@ -85,15 +85,15 @@ fun PlayerScreen(
     val dynamicColors = rememberDynamicColors(current?.artworkUrl)
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Dynamic gradient background based on artwork colors
+        // BOLD dynamic gradient background based on artwork colors
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
+                            dynamicColors.vibrant.copy(alpha = 0.6f),
                             dynamicColors.darkVibrant,
-                            dynamicColors.muted.copy(alpha = 0.8f),
                             Color.Black
                         )
                     )
@@ -106,9 +106,9 @@ fun PlayerScreen(
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(60.dp) else Modifier),
+                    .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(80.dp) else Modifier),
                 contentScale = ContentScale.Crop,
-                alpha = 0.3f
+                alpha = 0.4f
             )
         }
         Box(
@@ -224,8 +224,8 @@ fun PlayerScreen(
                 valueRange = 0f..duration.toFloat(),
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    thumbColor = dynamicColors.vibrant,
+                    activeTrackColor = dynamicColors.vibrant,
                     inactiveTrackColor = Color.White.copy(alpha = 0.25f)
                 )
             )
