@@ -38,6 +38,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -249,9 +250,12 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Secondary controls: shuffle / queue / repeat / sleep timer
+            // Secondary controls: shuffle / queue / repeat / sleep timer / lyrics
             var showSleepDialog by remember { mutableStateOf(false) }
+            var showLyricsDialog by remember { mutableStateOf(false) }
             val sleepActive by viewModel.sleepTimer.isActive.collectAsStateWithLifecycle()
+            val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
+            val lyricsLoading by viewModel.lyricsLoading.collectAsStateWithLifecycle()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -288,6 +292,39 @@ fun PlayerScreen(
                         else Color.White.copy(alpha = 0.6f)
                     )
                 }
+                IconButton(onClick = {
+                    current?.let { viewModel.loadLyrics(it.artist, it.title) }
+                    showLyricsDialog = true
+                }) {
+                    Icon(
+                        Icons.Filled.Mic,
+                        contentDescription = "Lyrics",
+                        tint = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            // Lyrics dialog
+            if (showLyricsDialog) {
+                AlertDialog(
+                    onDismissRequest = { showLyricsDialog = false },
+                    title = { Text("Lyrics") },
+                    text = {
+                        if (lyricsLoading) {
+                            Text("Loading lyrics...")
+                        } else if (lyrics != null) {
+                            Text(lyrics!!)
+                        } else {
+                            Text("No lyrics found for this song.")
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showLyricsDialog = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
             }
 
             // Sleep timer dialog
