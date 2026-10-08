@@ -32,7 +32,9 @@ import javax.inject.Singleton
  * No API keys, cookies or credentials are hardcoded or required.
  */
 @Singleton
-class InnerTubeMusicSource @Inject constructor() : MusicSource {
+class InnerTubeMusicSource @Inject constructor(
+    private val webViewExtractor: WebViewStreamExtractor
+) : MusicSource {
 
     private companion object {
         // API key is fetched dynamically from YouTube's pages (it's YouTube's
@@ -202,19 +204,24 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
             }
         }
 
-    override suspend fun getStreamUrl(songId: String): Result<String> {
-        // COMPLIANT: We do not extract direct stream URLs or bypass access controls.
-        // Playback uses YouTube's supported embed player (WebView).
-        return Result.failure(
-            UnsupportedOperationException("Direct stream extraction not used. Use YouTube embed player.")
-        )
-    }
+    override suspend fun getStreamUrl(songId: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                // Echo approach: act as a specialized browser, parse YouTube's
+                // website content via WebView, extract the audio stream URL.
+                streamCache[songId]?.let { return@runCatching it }
+                val url = webViewExtractor.extractAudioUrl(songId)
+                    ?: throw IllegalStateException("Could not extract audio stream")
+                // Add ratebypass to prevent throttling
+                val finalUrl = if (url.contains("ratebypass=")) url
+                else url + "&ratebypass=yes"
+                streamCache[songId] = finalUrl
+                finalUrl
+            }
+        }
 
-    override suspend fun getStreamUrls(songId: String): Result<List<String>> {
-        return Result.failure(
-            UnsupportedOperationException("Direct stream extraction not used. Use YouTube embed player.")
-        )
-    }
+    override suspend fun getStreamUrls(songId: String): Result<List<String>> =
+        getStreamUrl(songId).map { listOf(it) }
 
     override suspend fun getTrending(): Result<List<Song>> = withContext(Dispatchers.IO) {
         // YouTube Music charts via a charts search; falls back to a genre
