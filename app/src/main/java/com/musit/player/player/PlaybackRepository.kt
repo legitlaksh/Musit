@@ -33,6 +33,7 @@ interface PlaybackRepository {
     fun playNext(song: Song)
 
     fun togglePlayPause()
+    fun pause()
     fun next()
     fun previous()
     fun seekTo(positionMs: Long)
