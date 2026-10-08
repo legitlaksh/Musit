@@ -156,7 +156,7 @@ fun LibraryScreen(
                         icon = { Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
                         iconBg = Color(0xFF6A1B9A),
                         title = playlist.name,
-                        subtitle = "by you • ${playlist.songCount} songs",
+                        subtitle = "by you",
                         onClick = { onOpenPlaylist(playlist.id) }
                     )
                 }
