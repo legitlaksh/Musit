@@ -12,7 +12,7 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.musit.player.MainActivity
+import com.musit.player.ui.MainActivity
 import com.musit.player.data.repository.LibraryRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
