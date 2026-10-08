@@ -65,7 +65,19 @@ class InnerTubeMusicSource @Inject constructor(
     )
 
     // Ordered by measured ability to serve a complete file.
+    // YouTube Music's own clients first — they're the least likely to be blocked.
     private val streamClients = listOf(
+        PlayerClient(
+            name = "ANDROID_MUSIC", version = "8.10.51",
+            userAgent = "com.google.android.apps.youtube.music/8.10.51 (Linux; U; Android 14; en_US) gzip",
+            osName = "Android", osVersion = "14",
+            deviceMake = "Google", deviceModel = "Pixel 8",
+            androidSdkVersion = 34
+        ),
+        PlayerClient(
+            name = "WEB_REMIX", version = "1.20250101.00.00",
+            userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        ),
         PlayerClient(
             name = "VISIONOS", version = "0.1",
             userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
