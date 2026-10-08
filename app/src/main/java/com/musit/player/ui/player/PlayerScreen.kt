@@ -28,10 +28,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -68,6 +70,7 @@ import com.musit.player.ui.formatMs
 fun PlayerScreen(
     onClose: () -> Unit,
     onOpenQueue: () -> Unit,
+    onArtistClick: (String) -> Unit = {},
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     BackHandler(onBack = onClose)
@@ -92,6 +95,18 @@ fun PlayerScreen(
     val sleepActive by viewModel.sleepTimer.isActive.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsLoading by viewModel.lyricsLoading.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    fun shareSong() {
+        current?.let { song ->
+            val shareText = "🎵 ${song.title} by ${song.artist}\nListening on musit"
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Share song"))
+        }
+    }
 
     var sliderOverride by remember { mutableStateOf<Float?>(null) }
     val duration = durationMs.coerceAtLeast(1L)
@@ -170,8 +185,13 @@ fun PlayerScreen(
                     )
                     Text(
                         current?.artist ?: "",
-                        color = Color.White.copy(alpha = 0.6f), fontSize = 16.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                        color = Color(0xFF9D4EDD), fontSize = 16.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable(
+                            enabled = current?.artist?.isNotBlank() == true
+                        ) {
+                            current?.artist?.let { onArtistClick(it) }
+                        }
                     )
                 }
                 IconButton(onClick = { current?.let { viewModel.toggleFavorite(it, isFav) } }) {
@@ -261,7 +281,7 @@ fun PlayerScreen(
         // Secondary icons row
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 IconButton(onClick = onOpenQueue) {
@@ -274,6 +294,9 @@ fun PlayerScreen(
                 }
                 IconButton(onClick = { showLyricsDialog = true }) {
                     Icon(Icons.Filled.Mic, "Lyrics", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                }
+                IconButton(onClick = { shareSong() }) {
+                    Icon(Icons.Filled.Share, "Share", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
