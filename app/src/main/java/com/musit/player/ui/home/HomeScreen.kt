@@ -20,8 +20,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,25 +48,34 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.musit.player.model.Song
 import com.musit.player.ui.UiState
-import com.musit.player.ui.components.EmptyView
 import com.musit.player.ui.components.ErrorView
 import com.musit.player.ui.components.LoadingView
+import java.util.Calendar
 
 /**
- * Echo-style home: mood chips, large featured card, speed dial.
+ * Mockup-style home: greeting, quick access grid, Made for You, Trending.
  */
 @Composable
 fun HomeScreen(
     onSongClick: (List<Song>, Int) -> Unit,
     onSearchClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onLikedClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val trending by viewModel.trending.collectAsStateWithLifecycle()
-    var selectedMood by remember { mutableStateOf("Energize") }
+    var selectedChip by remember { mutableStateOf("All") }
 
-    val moods = listOf("Energize", "Feel good", "Romance", "Relax")
+    val greeting = remember {
+        when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+            in 0..11 -> "Good Morning"
+            in 12..16 -> "Good Afternoon"
+            else -> "Good Evening"
+        }
+    }
+
+    val chips = listOf("All", "Music", "Podcasts", "Chill", "Work")
 
     LazyColumn(
         modifier = Modifier
@@ -72,188 +83,164 @@ fun HomeScreen(
             .background(Color(0xFF0A0A0A)),
         contentPadding = PaddingValues(bottom = 120.dp)
     ) {
-        // Header: musit + icons
+        // Header: musit + settings
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "musit",
                     color = Color.White,
-                    fontSize = 28.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onSearchClick) {
-                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.White.copy(alpha = 0.8f))
-                }
                 IconButton(onClick = onSettingsClick) {
                     Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color.White.copy(alpha = 0.8f))
                 }
             }
         }
 
-        // Mood chips
+        // Filter chips
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(moods) { mood ->
-                    val selected = selectedMood == mood
+                items(chips) { chip ->
+                    val selected = selectedChip == chip
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                if (selected) Color.White.copy(alpha = 0.15f)
-                                else Color.White.copy(alpha = 0.07f)
-                            )
-                            .clickable { selectedMood = mood }
-                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .background(if (selected) Color(0xFF9D4EDD) else Color.White.copy(alpha = 0.08f))
+                            .clickable { selectedChip = chip }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = mood,
-                            color = if (selected) Color.White else Color.White.copy(alpha = 0.6f),
-                            fontSize = 15.sp,
+                            text = chip,
+                            color = Color.White,
+                            fontSize = 13.sp,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Featured card (large artwork)
-        item {
-            val featured = when (trending) {
-                is UiState.Success -> (trending as UiState.Success<List<Song>>).data.firstOrNull()
-                else -> null
-            } ?: recents.firstOrNull()
-
-            if (featured != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .aspectRatio(1.15f)
-                        .clip(RoundedCornerShape(24.dp))
-                        .clickable {
-                            val list = when (trending) {
-                                is UiState.Success -> (trending as UiState.Success<List<Song>>).data
-                                else -> recents
-                            }
-                            val idx = list.indexOf(featured).coerceAtLeast(0)
-                            onSongClick(list, idx)
-                        }
-                ) {
-                    AsyncImage(
-                        model = featured.artworkUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.75f)
-                                    ),
-                                    startY = 400f
-                                )
-                            )
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(20.dp)
-                    ) {
-                        Text(
-                            text = featured.title.uppercase(),
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = featured.artist.uppercase(),
-                            color = Color.White.copy(alpha = 0.75f),
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(28.dp))
-            }
-        }
-
-        // SPEED DIAL section
-        if (recents.isNotEmpty()) {
-            item {
-                Text(
-                    text = "SPEED DIAL",
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(recents.take(10)) { song ->
-                        val idx = recents.indexOf(song)
-                        Box(
-                            modifier = Modifier
-                                .size(140.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable { onSongClick(recents, idx) }
-                        ) {
-                            AsyncImage(
-                                model = song.artworkUrl,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = 0.25f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Filled.PlayArrow,
-                                    contentDescription = "Play",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(28.dp))
-            }
-        }
-
-        // Trending section
+        // Greeting
         item {
             Text(
-                text = "TRENDING NOW",
-                color = Color.White.copy(alpha = 0.9f),
-                fontSize = 16.sp,
+                text = greeting,
+                color = Color.White,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Quick access 2x2 grid
+        item {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickAccessCard(
+                        title = "Liked Songs",
+                        icon = { Icon(Icons.Filled.Favorite, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
+                        bgColor = Color(0xFF1A1A2E),
+                        modifier = Modifier.weight(1f),
+                        onClick = onLikedClick
+                    )
+                    val recentSong = recents.firstOrNull()
+                    QuickAccessCard(
+                        title = "Recent",
+                        artworkUrl = recentSong?.artworkUrl,
+                        modifier = Modifier.weight(1f),
+                        onClick = { if (recents.isNotEmpty()) onSongClick(recents, 0) }
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    QuickAccessCard(
+                        title = "Downloads",
+                        icon = { Icon(Icons.Filled.Download, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp)) },
+                        bgColor = Color(0xFF1A1A2E),
+                        modifier = Modifier.weight(1f),
+                        onClick = {}
+                    )
+                    QuickAccessCard(
+                        title = "Your Mix",
+                        bgColor = Color(0xFF6A1B9A),
+                        modifier = Modifier.weight(1f),
+                        onClick = {}
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // Made for You
+        item {
+            Text(
+                text = "Made for You",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        item {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val mixes = listOf(
+                    "Chill Mix" to "Relax and unwind",
+                    "Workout Mix" to "High energy"
+                )
+                items(mixes) { (title, subtitle) ->
+                    Column(modifier = Modifier.width(160.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(160.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(Color(0xFF6A1B9A), Color(0xFF9D4EDD))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(title.first().toString(), color = Color.White.copy(alpha = 0.3f), fontSize = 64.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(subtitle, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // Trending
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Trending", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("See All", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp,
+                    modifier = Modifier.clickable { })
+            }
             Spacer(modifier = Modifier.height(12.dp))
         }
 
@@ -261,12 +248,9 @@ fun HomeScreen(
             is UiState.Loading -> item { LoadingView() }
             is UiState.Error -> item { ErrorView(t.message, onRetry = viewModel::refreshTrending) }
             is UiState.Success -> {
-                items(t.data.take(10)) { song ->
+                items(t.data.take(5)) { song ->
                     val idx = t.data.indexOf(song)
-                    EchoSongRow(
-                        song = song,
-                        onClick = { onSongClick(t.data, idx) }
-                    )
+                    MockupSongRow(song = song, onClick = { onSongClick(t.data, idx) })
                 }
             }
             null -> {}
@@ -275,49 +259,69 @@ fun HomeScreen(
 }
 
 @Composable
-private fun EchoSongRow(
-    song: Song,
-    onClick: () -> Unit
+private fun QuickAccessCard(
+    title: String,
+    modifier: Modifier = Modifier,
+    icon: @Composable (() -> Unit)? = null,
+    artworkUrl: String? = null,
+    bgColor: Color = Color(0xFF1E1E1E),
+    onClick: () -> Unit = {}
 ) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (artworkUrl != null) {
+                AsyncImage(model = artworkUrl, contentDescription = null,
+                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            } else if (icon != null) {
+                icon()
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun MockupSongRow(song: Song, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = song.artworkUrl,
             contentDescription = null,
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(12.dp)),
+            modifier = Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)),
             contentScale = ContentScale.Crop
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = song.artist,
-                color = Color.White.copy(alpha = 0.6f),
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Text(song.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(song.artist, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onClick = {}) {
+            Icon(Icons.Filled.MoreVert, null, tint = Color.White.copy(alpha = 0.5f))
         }
         IconButton(onClick = onClick) {
-            Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = "Play",
-                tint = Color.White.copy(alpha = 0.7f)
-            )
+            Icon(Icons.Filled.PlayArrow, null, tint = Color.White)
         }
     }
 }
