@@ -79,6 +79,56 @@ fun PlayerScreen(
 
     val current = song
 
+    // YouTube songs play via the supported embed player (WebView), completely
+    // separated from Media3 (which handles only local files). No stream URL
+    // extraction, no access-control bypasses.
+    val isYouTube = current != null && !current.id.startsWith("local:")
+    if (isYouTube && current != null) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowDown,
+                        contentDescription = "Close",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+            Text(
+                text = current.title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            Text(
+                text = current.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+            )
+            YouTubeEmbedPlayer(
+                videoId = current.id,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(16.dp)
+                    .clip(RoundedCornerShape(16.dp))
+            )
+        }
+        return
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Blurred artwork backdrop (renders on API 31+, harmless no-op below).
         if (current?.artworkUrl != null) {
