@@ -158,6 +158,11 @@ class Media3PlaybackRepository @Inject constructor(
         if (c.isPlaying) c.pause() else c.play()
     }
 
+    override fun pause() {
+        controller?.pause()
+        _isPlaying.value = false
+    }
+
     override fun next() {
         if (_repeatMode.value == RepeatMode.ONE) {
             seekTo(0)
