@@ -62,6 +62,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {},
     onLikedClick: () -> Unit = {},
     onMoodClick: (String) -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val recents by viewModel.recents.collectAsStateWithLifecycle()
@@ -175,13 +176,13 @@ fun HomeScreen(
                         icon = { Icon(Icons.Filled.Download, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(24.dp)) },
                         bgColor = Color(0xFF1A1A2E),
                         modifier = Modifier.weight(1f),
-                        onClick = {}
+                        onClick = onDownloadsClick
                     )
                     QuickAccessCard(
                         title = "Your Mix",
                         bgColor = Color(0xFF6A1B9A),
                         modifier = Modifier.weight(1f),
-                        onClick = {}
+                        onClick = { onMoodClick("Your Mix") }
                     )
                 }
             }
@@ -209,7 +210,10 @@ fun HomeScreen(
                     "Workout Mix" to "High energy"
                 )
                 items(mixes) { (title, subtitle) ->
-                    Column(modifier = Modifier.width(160.dp)) {
+                    Column(
+                        modifier = Modifier.width(160.dp)
+                            .clickable { onMoodClick(title) }
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(160.dp)
