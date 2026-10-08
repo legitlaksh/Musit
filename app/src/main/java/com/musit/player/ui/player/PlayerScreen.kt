@@ -1,7 +1,6 @@
 package com.musit.player.ui.player
 
 import android.os.Build
-import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -80,138 +78,6 @@ fun PlayerScreen(
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
 
     val current = song
-
-    // YouTube songs: hidden WebView plays AUDIO (YouTube's official player),
-    // beautiful native UI on top (like Echo). No video shown.
-    val isYouTube = current != null && !current.id.startsWith("local:")
-    if (isYouTube && current != null) {
-        var webView by remember { mutableStateOf<WebView?>(null) }
-        var isPlaying by remember { mutableStateOf(true) }
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Hidden audio player (invisible, 0 size)
-            HiddenAudioPlayer(
-                videoId = current.id,
-                onWebViewReady = { webView = it },
-                modifier = Modifier.size(1.dp)
-            )
-
-            // Beautiful native UI on top (same as Echo)
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF1A1A1A))
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "Close",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Album art
-                AsyncImage(
-                    model = current.artworkUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(300.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White.copy(alpha = 0.08f)),
-                    contentScale = ContentScale.Crop
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Title and artist
-                Text(
-                    text = current.title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = current.artist,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Playback controls
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { /* Previous */ },
-                        modifier = Modifier.size(56.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.SkipPrevious,
-                            contentDescription = "Previous",
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            if (isPlaying) {
-                                AudioPlayerBridge.pause(webView)
-                            } else {
-                                AudioPlayerBridge.play(webView)
-                            }
-                            isPlaying = !isPlaying
-                        },
-                        modifier = Modifier
-                            .size(80.dp)
-                            .background(Color.White, CircleShape)
-                    ) {
-                        Icon(
-                            if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = Color.Black,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { /* Next */ },
-                        modifier = Modifier.size(56.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.SkipNext,
-                            contentDescription = "Next",
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-        return
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Blurred artwork backdrop (renders on API 31+, harmless no-op below).
