@@ -40,8 +40,9 @@ import com.musit.player.ui.search.SearchScreen
 import com.musit.player.ui.settings.SettingsScreen
 
 object Routes {
+    const val SPLASH = "splash"
     const val HOME = "home"
-    const val SEARCH = "search"
+    const val SEARCH = "search?query={query}"
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
     const val PLAYER = "player"
@@ -49,6 +50,7 @@ object Routes {
     const val PLAYLIST = "playlist/{playlistId}"
 
     fun playlist(playlistId: Long) = "playlist/$playlistId"
+    fun search(query: String) = "search?query=$query"
 }
 
 private data class BottomTab(val route: String, val label: String, val icon: ImageVector)
@@ -128,18 +130,40 @@ fun MusitNavGraph(
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = Routes.SPLASH,
             modifier = Modifier.padding(padding)
         ) {
-            composable(Routes.HOME) {
-                HomeScreen(onSongClick = ::playAndOpenPlayer)
+            composable(Routes.SPLASH) {
+                com.musit.player.ui.splash.SplashScreen(
+                    onDone = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.SPLASH) { inclusive = true }
+                        }
+                    }
+                )
             }
-            composable(Routes.SEARCH) {
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onSongClick = ::playAndOpenPlayer,
+                    onMoodClick = { mood ->
+                        navController.navigate(Routes.search(mood))
+                    }
+                )
+            }
+            composable(
+                route = Routes.SEARCH,
+                arguments = listOf(navArgument("query") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                })
+            ) { entry ->
+                val initialQuery = entry.arguments?.getString("query") ?: ""
                 SearchScreen(
                     onSongClick = ::playAndOpenPlayer,
                     onPlayNext = mainViewModel::playNext,
                     onToggleFavorite = mainViewModel::toggleFavorite,
-                    onAddToPlaylist = mainViewModel::requestAddToPlaylist
+                    onAddToPlaylist = mainViewModel::requestAddToPlaylist,
+                    initialQuery = initialQuery
                 )
             }
             composable(Routes.LIBRARY) {
