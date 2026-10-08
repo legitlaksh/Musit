@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.musit.player.ui.theme.DynamicColors
+import com.musit.player.ui.theme.rememberDynamicColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -79,7 +81,24 @@ fun PlayerScreen(
 
     val current = song
 
+    // Dynamic theming: extract colors from album artwork
+    val dynamicColors = rememberDynamicColors(current?.artworkUrl)
+
     Box(modifier = Modifier.fillMaxSize()) {
+        // Dynamic gradient background based on artwork colors
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            dynamicColors.darkVibrant,
+                            dynamicColors.muted.copy(alpha = 0.8f),
+                            Color.Black
+                        )
+                    )
+                )
+        )
         // Blurred artwork backdrop (renders on API 31+, harmless no-op below).
         if (current?.artworkUrl != null) {
             AsyncImage(
@@ -88,7 +107,8 @@ fun PlayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(if (Build.VERSION.SDK_INT >= 31) Modifier.blur(60.dp) else Modifier),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                alpha = 0.3f
             )
         }
         Box(
