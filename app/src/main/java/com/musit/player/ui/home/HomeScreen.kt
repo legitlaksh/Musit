@@ -259,7 +259,7 @@ fun HomeScreen(
 
         when (val t = trending) {
             is UiState.Loading -> item { LoadingView() }
-            is UiState.Error -> item { ErrorView(t.message, onRetry = viewModel::refresh) }
+            is UiState.Error -> item { ErrorView(t.message, onRetry = viewModel::refreshTrending) }
             is UiState.Success -> {
                 items(t.data.take(10)) { song ->
                     val idx = t.data.indexOf(song)
