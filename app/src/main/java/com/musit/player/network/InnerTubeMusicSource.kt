@@ -1,8 +1,10 @@
 package com.musit.player.network
 
+import android.util.Log
 import com.musit.player.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -33,7 +35,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class InnerTubeMusicSource @Inject constructor(
-    private val webViewExtractor: WebViewStreamExtractor
+    private val webViewExtractor: WebViewStreamExtractor,
+    private val poTokens: PoTokenGenerator
 ) : MusicSource {
 
     private companion object {
@@ -48,6 +51,7 @@ class InnerTubeMusicSource @Inject constructor(
         // Preferred audio itags, best quality first.
         val PREFERRED_ITAGS = intArrayOf(251, 250, 249, 140, 139)
 
+        const val TAG = "InnerTube"
         // Probe past the ~1 MiB preview cap IOS URLs carry.
         const val PREVIEW_CAP_PROBE_START = 1_048_576L
     }
@@ -67,6 +71,10 @@ class InnerTubeMusicSource @Inject constructor(
     // Ordered by measured ability to serve a complete file.
     // YouTube Music's own clients first — they're the least likely to be blocked.
     private val streamClients = listOf(
+        PlayerClient(
+            name = "WEB", version = "",   // version filled from homepage at runtime
+            userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+        ),
         PlayerClient(
             name = "ANDROID_MUSIC", version = "8.10.51",
             userAgent = "com.google.android.apps.youtube.music/8.10.51 (Linux; U; Android 14; en_US) gzip",
@@ -119,6 +127,20 @@ class InnerTubeMusicSource @Inject constructor(
     // Dynamically fetched YouTube web client API key (public, not secret).
     @Volatile
     private var cachedApiKey: String? = null
+    @Volatile
+    private var cachedVisitorData: String? = null
+    @Volatile
+    private var cachedWebVersion: String? = null
+
+    private suspend fun visitorData(): String? {
+        apiKey() // populates the cache
+        return cachedVisitorData
+    }
+
+    private suspend fun webVersion(): String {
+        apiKey()
+        return cachedWebVersion ?: "2.20250925.01.00"
+    }
 
     /** Fetches YouTube's public web API key from their homepage. */
     private suspend fun apiKey(): String = withContext(Dispatchers.IO) {
@@ -136,6 +158,12 @@ class InnerTubeMusicSource @Inject constructor(
                     val match = Regex("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([^\"]+)\"")
                         .find(html)
                     val key = match?.groupValues?.get(1)
+                    cachedVisitorData = Regex("\"VISITOR_DATA\"\\s*:\\s*\"([^\"]+)\"")
+                        .find(html)?.groupValues?.get(1)
+                        ?: Regex("\"visitorData\"\\s*:\\s*\"([^\"]+)\"")
+                            .find(html)?.groupValues?.get(1)
+                    cachedWebVersion = Regex("\"INNERTUBE_CONTEXT_CLIENT_VERSION\"\\s*:\\s*\"([^\"]+)\"")
+                        .find(html)?.groupValues?.get(1)
                     if (key != null) {
                         cachedApiKey = key
                         return@withContext key
@@ -207,18 +235,47 @@ class InnerTubeMusicSource @Inject constructor(
     override suspend fun getStreamUrl(songId: String): Result<String> =
         withContext(Dispatchers.IO) {
             runCatching {
-                // Echo approach: act as a specialized browser, parse YouTube's
-                // website content via WebView, extract the audio stream URL.
                 streamCache[songId]?.let { return@runCatching it }
-                val url = webViewExtractor.extractAudioUrl(songId)
-                    ?: throw IllegalStateException("Could not extract audio stream")
-                // Add ratebypass to prevent throttling
-                val finalUrl = if (url.contains("ratebypass=")) url
-                else url + "&ratebypass=yes"
-                streamCache[songId] = finalUrl
-                finalUrl
+
+                val visitor = visitorData()
+                // Player-request token is bound to the video ID.
+                val playerPot = poTokens.getPoToken(songId)
+                Log.d(TAG, "visitorData=${visitor != null} playerPot=${playerPot != null}")
+
+                for (pc in streamClients) {
+                    val raw = try {
+                        resolveViaClient(songId, pc, visitor, playerPot)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "${pc.name} threw: ${e.message}")
+                        null
+                    } ?: continue
+
+                    // HLS manifests need no &pot=; plain URLs get a GVS token.
+                    val candidates = if (raw.contains(".m3u8") || raw.contains("/manifest/")) {
+                        listOf(raw)
+                    } else {
+                        // GVS token is bound to visitorData by default; some
+                        // sessions are bound to the video ID instead - try both.
+                        listOfNotNull(
+                            visitor?.let { poTokens.getPoToken(it) },
+                            poTokens.getPoToken(songId)
+                        ).map { withPot(raw, it) }.ifEmpty { listOf(raw) }
+                    }
+                    for (url in candidates) {
+                        if (url.contains(".m3u8") || url.contains("/manifest/") || probeStreamUrl(url)) {
+                            Log.d(TAG, "stream OK via ${pc.name}")
+                            streamCache[songId] = url
+                            return@runCatching url
+                        }
+                    }
+                    Log.w(TAG, "${pc.name}: URL failed probe")
+                }
+                throw IllegalStateException("No client produced a playable stream")
             }
         }
+
+    private fun withPot(url: String, pot: String): String =
+        url.toHttpUrl().newBuilder().setQueryParameter("pot", pot).build().toString()
 
     override suspend fun getStreamUrls(songId: String): Result<List<String>> =
         getStreamUrl(songId).map { listOf(it) }
@@ -234,12 +291,18 @@ class InnerTubeMusicSource @Inject constructor(
     // ------------------------------------------------------------------
 
     /** Resolves a raw (unvalidated) audio URL via one player client. Null if none. */
-    private suspend fun resolveViaClient(songId: String, playerClient: PlayerClient): String? {
+    private suspend fun resolveViaClient(
+        songId: String,
+        playerClient: PlayerClient,
+        visitorData: String?,
+        playerPoToken: String?
+    ): String? {
         val clientJson = JSONObject()
             .put("clientName", playerClient.name)
-            .put("clientVersion", playerClient.version)
+            .put("clientVersion", playerClient.version.ifEmpty { webVersion() })
             .put("hl", "en")
             .put("gl", "US")
+        visitorData?.let { clientJson.put("visitorData", it) }
         playerClient.osName?.let { clientJson.put("osName", it) }
         playerClient.osVersion?.let { clientJson.put("osVersion", it) }
         playerClient.deviceMake?.let { clientJson.put("deviceMake", it) }
@@ -251,12 +314,21 @@ class InnerTubeMusicSource @Inject constructor(
             .put("videoId", songId)
             .put("contentCheckOk", true)
             .put("racyCheckOk", true)
+        playerPoToken?.let {
+            bodyJson.put("serviceIntegrityDimensions", JSONObject().put("poToken", it))
+        }
         val body = bodyJson.toString()
 
-        val text = postJson(playerUrl(playerClient.name), body, playerClient.userAgent) ?: return null
+        val text = postJson(
+            playerUrl(playerClient.name), body, playerClient.userAgent, visitorData
+        ) ?: run { Log.w(TAG, "${playerClient.name}: player request failed"); return null }
         val json = JSONObject(text)
-        val status = json.optJSONObject("playabilityStatus")?.optString("status")
-        if (status != "OK") return null
+        val ps = json.optJSONObject("playabilityStatus")
+        val status = ps?.optString("status")
+        if (status != "OK") {
+            Log.w(TAG, "${playerClient.name}: $status - ${ps?.optString("reason")}")
+            return null
+        }
 
         val streamingData = json.optJSONObject("streamingData") ?: return null
         // HLS manifests are valid too; ExoPlayer handles them.
@@ -310,12 +382,18 @@ class InnerTubeMusicSource @Inject constructor(
         }
     }
 
-    private fun postJson(url: String, body: String, userAgent: String): String? {
+    private fun postJson(
+        url: String,
+        body: String,
+        userAgent: String,
+        visitorId: String? = null
+    ): String? {
         return try {
             val request = Request.Builder()
                 .url(url)
                 .header("Content-Type", "application/json")
                 .header("User-Agent", userAgent)
+                .apply { visitorId?.let { header("X-Goog-Visitor-Id", it) } }
                 .post(body.toRequestBody(jsonType))
                 .build()
             client.newCall(request).execute().use { response ->
