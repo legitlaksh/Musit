@@ -61,6 +61,7 @@ fun HomeScreen(
     onSearchClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onLikedClick: () -> Unit = {},
+    onMoodClick: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val recents by viewModel.recents.collectAsStateWithLifecycle()
@@ -116,7 +117,10 @@ fun HomeScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (selected) Color(0xFF9D4EDD) else Color.White.copy(alpha = 0.08f))
-                            .clickable { selectedChip = chip }
+                            .clickable {
+                                selectedChip = chip
+                                if (chip != "All") onMoodClick(chip)
+                            }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
