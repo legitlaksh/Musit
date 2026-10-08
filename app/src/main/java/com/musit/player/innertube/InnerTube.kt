@@ -8,6 +8,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
@@ -30,13 +31,11 @@ object InnerTube {
 
     private const val API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
     private const val SEARCH_URL = "https://music.youtube.com/youtubei/v1/search?key=$API_KEY"
-    private const val PLAYER_URL = "https://www.youtube.com/youtubei/v1/player"
     private const val PLAYER_URL_KEYED = "https://www.youtube.com/youtubei/v1/player?key=$API_KEY"
+    private const val SUGGEST_URL = "https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&q="
 
     private const val DESKTOP_UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-    private const val ANDROID_VR_UA =
-        "com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip"
     private const val IOS_UA =
         "com.google.ios.youtube/20.49.6 (iPhone16,2; U; CPU iOS 18_2 like Mac OS X)"
 
@@ -164,6 +163,50 @@ object InnerTube {
         }
     }
 
+    // ------------------------------------------------------------------
+    // search suggestions
+    // ------------------------------------------------------------------
+
+    /** YouTube search suggestions for the given prefix. */
+    suspend fun getSearchSuggestions(query: String): List<String> = withContext(Dispatchers.IO) {
+        if (query.isBlank()) return@withContext emptyList()
+        try {
+            val url = SUGGEST_URL + URLEncoder.encode(query.trim(), "UTF-8")
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", DESKTOP_UA)
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext emptyList()
+                val text = response.body?.string() ?: return@withContext emptyList()
+                parseSuggestions(text)
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun parseSuggestions(text: String): List<String> {
+        return try {
+            // Format: ["query",[["suggestion",0,...],...],{...}]
+            val root = JSONArray(text)
+            val items = root.optJSONArray(1) ?: return emptyList()
+            val out = mutableListOf<String>()
+            for (i in 0 until items.length()) {
+                val s = when (val item = items.opt(i)) {
+                    is JSONArray -> item.optString(0, null)
+                    is String -> item
+                    else -> null
+                }
+                if (!s.isNullOrBlank()) out.add(s)
+            }
+            out
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     private fun parseSongItem(renderer: JSONObject): Song? {
         var videoId = renderer.optJSONObject("playlistItemData")?.optString("videoId")
         if (videoId.isNullOrEmpty()) {
@@ -223,93 +266,58 @@ object InnerTube {
     // ------------------------------------------------------------------
 
     /**
-     * Resolves a playable audio URL: ANDROID_VR first (direct URLs),
-     * then IOS (HLS manifest or progressive audio). Null if unplayable.
+     * Resolves a playable audio URL via the IOS client (direct audio URLs,
+     * HLS manifest fallback). ANDROID clients are currently bot-blocked by
+     * YouTube ("Sign in to confirm you're not a bot"), so IOS goes first.
+     * visitorData is best-effort: most videos resolve without it.
      */
     suspend fun getAudioStreamUrl(videoId: String): String? = withContext(Dispatchers.IO) {
-        getVisitorData(videoId) // best effort; IOS often works without it
-        androidVrStreamUrl(videoId) ?: iosStreamUrl(videoId)
+        iosStreamUrl(videoId, visitorData = null)
+            ?: getVisitorData(videoId)?.let { iosStreamUrl(videoId, visitorData = it) }
     }
 
-    private suspend fun androidVrStreamUrl(videoId: String): String? = withContext(Dispatchers.IO) {
-        val clientJson = JSONObject()
-            .put("clientName", "ANDROID_VR")
-            .put("clientVersion", "1.65.10")
-            .put("deviceMake", "Oculus")
-            .put("deviceModel", "Quest 3")
-            .put("osName", "Android")
-            .put("osVersion", "12L")
-            .put("androidSdkVersion", 32)
-            .put("hl", "en")
-            .put("gl", "US")
-        cachedVisitorData?.let { clientJson.put("visitorData", it) }
+    private suspend fun iosStreamUrl(videoId: String, visitorData: String?): String? =
+        withContext(Dispatchers.IO) {
+            val clientJson = JSONObject()
+                .put("clientName", "IOS")
+                .put("clientVersion", "20.49.6")
+                .put("deviceMake", "Apple")
+                .put("deviceModel", "iPhone16,2")
+                .put("osName", "iOS")
+                .put("osVersion", "18.2.0")
+                .put("hl", "en")
+                .put("gl", "US")
+            if (!visitorData.isNullOrEmpty()) clientJson.put("visitorData", visitorData)
 
-        val body = JSONObject()
-            .put("context", JSONObject().put("client", clientJson))
-            .put("videoId", videoId)
-            .put("contentCheckOk", true)
-            .put("racyCheckOk", true)
-            .toString()
+            val body = JSONObject()
+                .put("context", JSONObject().put("client", clientJson))
+                .put("videoId", videoId)
+                .put("contentCheckOk", true)
+                .put("racyCheckOk", true)
+                .toString()
 
-        val requestBuilder = Request.Builder()
-            .url(PLAYER_URL)
-            .header("Content-Type", "application/json")
-            .header("X-Youtube-Client-Name", "28")
-            .header("X-Youtube-Client-Version", "1.65.10")
-            .header("User-Agent", ANDROID_VR_UA)
-            .post(body.toRequestBody(jsonType))
-        cachedVisitorData?.let { requestBuilder.header("X-Goog-Visitor-Id", it) }
-
-        try {
-            client.newCall(requestBuilder.build()).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val text = response.body?.string() ?: return@withContext null
-                pickAudioUrl(JSONObject(text))
+            val requestBuilder = Request.Builder()
+                .url(PLAYER_URL_KEYED)
+                .header("Content-Type", "application/json")
+                .header("User-Agent", IOS_UA)
+                .post(body.toRequestBody(jsonType))
+            if (!visitorData.isNullOrEmpty()) {
+                requestBuilder.header("X-Goog-Visitor-Id", visitorData)
             }
-        } catch (e: Exception) {
-            null
-        }
-    }
 
-    private suspend fun iosStreamUrl(videoId: String): String? = withContext(Dispatchers.IO) {
-        val clientJson = JSONObject()
-            .put("clientName", "IOS")
-            .put("clientVersion", "20.49.6")
-            .put("deviceMake", "Apple")
-            .put("deviceModel", "iPhone16,2")
-            .put("osName", "iOS")
-            .put("osVersion", "18.2.0")
-            .put("hl", "en")
-            .put("gl", "US")
-        cachedVisitorData?.let { clientJson.put("visitorData", it) }
-
-        val body = JSONObject()
-            .put("context", JSONObject().put("client", clientJson))
-            .put("videoId", videoId)
-            .put("contentCheckOk", true)
-            .put("racyCheckOk", true)
-            .toString()
-
-        val request = Request.Builder()
-            .url(PLAYER_URL_KEYED)
-            .header("Content-Type", "application/json")
-            .header("User-Agent", IOS_UA)
-            .post(body.toRequestBody(jsonType))
-            .build()
-
-        try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val text = response.body?.string() ?: return@withContext null
-                val json = JSONObject(text)
-                val hls = json.optJSONObject("streamingData")?.optString("hlsManifestUrl")
-                if (!hls.isNullOrEmpty()) return@withContext hls
-                pickAudioUrl(json)
+            try {
+                client.newCall(requestBuilder.build()).execute().use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    val text = response.body?.string() ?: return@withContext null
+                    val json = JSONObject(text)
+                    val hls = json.optJSONObject("streamingData")?.optString("hlsManifestUrl")
+                    if (!hls.isNullOrEmpty()) return@withContext hls
+                    pickAudioUrl(json)
+                }
+            } catch (e: Exception) {
+                null
             }
-        } catch (e: Exception) {
-            null
         }
-    }
 
     /**
      * Picks the best direct audio URL from a player response:
