@@ -152,8 +152,14 @@ class InnerTubeMusicSource @Inject constructor(
     private suspend fun searchUrl(): String =
         "https://music.youtube.com/youtubei/v1/search?key=${apiKey()}"
 
-    private suspend fun playerUrl(): String =
-        "https://www.youtube.com/youtubei/v1/player?key=${apiKey()}"
+    private suspend fun playerUrl(clientName: String): String {
+        val host = if (clientName == "WEB_REMIX" || clientName == "ANDROID_MUSIC") {
+            "music.youtube.com"
+        } else {
+            "www.youtube.com"
+        }
+        return "https://$host/youtubei/v1/player?key=${apiKey()}"
+    }
 
     // ------------------------------------------------------------------
     // MusicSource
@@ -295,7 +301,7 @@ class InnerTubeMusicSource @Inject constructor(
         }
         val body = bodyJson.toString()
 
-        val text = postJson(playerUrl(), body, playerClient.userAgent) ?: return null
+        val text = postJson(playerUrl(playerClient.name), body, playerClient.userAgent) ?: return null
         val json = JSONObject(text)
         val status = json.optJSONObject("playabilityStatus")?.optString("status")
         if (status != "OK") return null
