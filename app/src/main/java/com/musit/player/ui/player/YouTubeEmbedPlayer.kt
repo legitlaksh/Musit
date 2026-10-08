@@ -22,51 +22,10 @@ fun YouTubeEmbedPlayer(
     videoId: String,
     modifier: Modifier = Modifier
 ) {
-    val html = remember(videoId) {
-        """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body { margin: 0; background: #000; }
-                #player { width: 100%; height: 100%; }
-            </style>
-        </head>
-        <body>
-            <div id="player"></div>
-            <script>
-                var tag = document.createElement('script');
-                tag.src = "https://www.youtube.com/iframe_api";
-                var firstScriptTag = document.getElementsByTagName('script')[0];
-                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-                var player;
-                function onYouTubeIframeAPIReady() {
-                    player = new YT.Player('player', {
-                        videoId: '$videoId',
-                        width: '100%',
-                        height: '100%',
-                        playerVars: {
-                            'autoplay': 1,
-                            'controls': 1,
-                            'rel': 0,
-                            'modestbranding': 1
-                        },
-                        events: {
-                            'onReady': function(event) {
-                                event.target.playVideo();
-                            }
-                        }
-                    });
-                }
-            </script>
-        </body>
-        </html>
-        """.trimIndent()
-    }
-
-    DisposableEffect(videoId) {
-        onDispose { }
+    // Use YouTube Music watch page for music tracks (embed doesn't support them).
+    // This is YouTube's supported web player.
+    val url = remember(videoId) {
+        "https://music.youtube.com/watch?v=$videoId&autoplay=1"
     }
 
     AndroidView(
@@ -76,24 +35,11 @@ fun YouTubeEmbedPlayer(
                 settings.domStorageEnabled = true
                 settings.mediaPlaybackRequiresUserGesture = false
                 webViewClient = WebViewClient()
-                loadDataWithBaseURL(
-                    "https://www.youtube.com",
-                    html,
-                    "text/html",
-                    "utf-8",
-                    null
-                )
+                loadUrl(url)
             }
         },
         update = { webView ->
-            // Reload if videoId changed
-            webView.loadDataWithBaseURL(
-                "https://www.youtube.com",
-                html,
-                "text/html",
-                "utf-8",
-                null
-            )
+            webView.loadUrl(url)
         },
         modifier = modifier,
         onRelease = { webView ->
