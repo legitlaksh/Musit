@@ -147,6 +147,9 @@ fun MusitNavGraph(
                     onSongClick = ::playAndOpenPlayer,
                     onMoodClick = { mood ->
                         navController.navigate(Routes.search(mood))
+                    },
+                    onDownloadsClick = {
+                        navController.navigate(Routes.LIBRARY)
                     }
                 )
             }
