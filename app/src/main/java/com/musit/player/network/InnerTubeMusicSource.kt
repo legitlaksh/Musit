@@ -33,7 +33,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class InnerTubeMusicSource @Inject constructor(
-    private val webViewExtractor: WebViewStreamExtractor
+    private val webViewExtractor: WebViewStreamExtractor,
+    private val poTokenGenerator: PoTokenGenerator
 ) : MusicSource {
 
     private companion object {
@@ -274,12 +275,25 @@ class InnerTubeMusicSource @Inject constructor(
         playerClient.deviceModel?.let { clientJson.put("deviceModel", it) }
         playerClient.androidSdkVersion?.let { clientJson.put("androidSdkVersion", it) }
 
-        val body = JSONObject()
+        val bodyJson = JSONObject()
             .put("context", JSONObject().put("client", clientJson))
             .put("videoId", songId)
             .put("contentCheckOk", true)
             .put("racyCheckOk", true)
-            .toString()
+        // Proof-of-Origin token: proves to YouTube this request comes from a
+        // real client, bypassing bot detection (same mechanism Echo uses).
+        try {
+            val poToken = poTokenGenerator.getPoToken(songId)
+            if (poToken != null) {
+                bodyJson.put(
+                    "serviceIntegrityDimensions",
+                    JSONObject().put("poToken", poToken)
+                )
+            }
+        } catch (e: Exception) {
+            // proceed without token; client chain may still work
+        }
+        val body = bodyJson.toString()
 
         val text = postJson(playerUrl(), body, playerClient.userAgent) ?: return null
         val json = JSONObject(text)
