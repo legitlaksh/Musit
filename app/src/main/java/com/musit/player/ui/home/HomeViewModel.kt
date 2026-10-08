@@ -18,15 +18,22 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val music: MusicRepository,
-    library: LibraryRepository
+    private val library: LibraryRepository
 ) : ViewModel() {
 
     val recents: StateFlow<List<Song>> =
         library.observeRecents(20)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val favorites: StateFlow<List<Song>> =
+        library.observeFavorites()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _trending = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val trending: StateFlow<UiState<List<Song>>> = _trending.asStateFlow()
+
+    private val _smartMix = MutableStateFlow<UiState<List<Song>>?>(null)
+    val smartMix: StateFlow<UiState<List<Song>>?> = _smartMix.asStateFlow()
 
     init {
         refreshTrending()
@@ -44,6 +51,35 @@ class HomeViewModel @Inject constructor(
                     UiState.Error(e.message ?: "Couldn't load trending music.")
                 }
             )
+        }
+    }
+
+    /**
+     * Generates a smart "Your Mix" playlist based on listening taste:
+     * combines liked songs, recently played, and trending, then shuffles.
+     */
+    fun generateSmartMix() {
+        viewModelScope.launch {
+            _smartMix.value = UiState.Loading
+            try {
+                val liked = favorites.value
+                val recent = recents.value
+                val trendingSongs = (_trending.value as? UiState.Success)?.data ?: emptyList()
+
+                // Combine: prioritize liked, then recent, then trending
+                val combined = (liked + recent + trendingSongs)
+                    .distinctBy { it.id }
+                    .shuffled()
+                    .take(30)
+
+                if (combined.isEmpty()) {
+                    _smartMix.value = UiState.Error("Play some songs first to generate your mix!")
+                } else {
+                    _smartMix.value = UiState.Success(combined)
+                }
+            } catch (e: Exception) {
+                _smartMix.value = UiState.Error(e.message ?: "Couldn't generate mix")
+            }
         }
     }
 }
