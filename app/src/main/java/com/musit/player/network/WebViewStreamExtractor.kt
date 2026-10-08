@@ -69,12 +69,29 @@ class WebViewStreamExtractor @Inject constructor(
                                 request: WebResourceRequest?
                             ): WebResourceResponse? {
                                 val url = request?.url?.toString() ?: return null
-                                // Look for googlevideo audio stream URLs
-                                if (url.contains("googlevideo.com") &&
-                                    url.contains("mime=audio")
-                                ) {
-                                    // Found an audio stream URL! Capture and finish.
-                                    finish(url)
+                                // Look for googlevideo audio stream URLs.
+                                // Check both literal and URL-encoded mime types,
+                                // plus known audio-only itags.
+                                if (url.contains("googlevideo.com")) {
+                                    val isAudio = url.contains("mime=audio") ||
+                                        url.contains("mime%3Daudio") ||
+                                        url.contains("mime%253Daudio") ||
+                                        url.contains("audio%2Fmp4") ||
+                                        url.contains("audio%2Fwebm") ||
+                                        url.contains("audio/mp4") ||
+                                        url.contains("audio/webm") ||
+                                        // Audio-only itags: 139, 140, 141, 171, 249, 250, 251
+                                        url.contains("itag=139") ||
+                                        url.contains("itag=140") ||
+                                        url.contains("itag=141") ||
+                                        url.contains("itag=171") ||
+                                        url.contains("itag=249") ||
+                                        url.contains("itag=250") ||
+                                        url.contains("itag=251")
+                                    if (isAudio) {
+                                        // Found an audio stream URL! Capture and finish.
+                                        finish(url)
+                                    }
                                 }
                                 return null
                             }
