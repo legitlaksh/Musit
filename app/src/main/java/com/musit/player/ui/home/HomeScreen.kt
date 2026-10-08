@@ -258,7 +258,7 @@ fun HomeScreen(
             ) {
                 Text("Trending", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text("See All", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp,
-                    modifier = Modifier.clickable { })
+                    modifier = Modifier.clickable { onMoodClick("trending") })
             }
             Spacer(modifier = Modifier.height(12.dp))
         }
@@ -335,9 +335,6 @@ private fun MockupSongRow(song: Song, onClick: () -> Unit) {
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artist, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        IconButton(onClick = {}) {
-            Icon(Icons.Filled.MoreVert, null, tint = Color.White.copy(alpha = 0.5f))
         }
         IconButton(onClick = onClick) {
             Icon(Icons.Filled.PlayArrow, null, tint = Color.White)
