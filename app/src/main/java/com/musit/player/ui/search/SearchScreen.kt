@@ -3,10 +3,12 @@ package com.musit.player.ui.search
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,14 +24,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -39,10 +40,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.musit.player.model.Song
@@ -52,6 +57,10 @@ import com.musit.player.ui.components.ErrorView
 import com.musit.player.ui.components.LoadingView
 import com.musit.player.ui.components.SongRow
 
+/**
+ * Mockup-style search: colorful category cards + Browse All genres.
+ * ViewModel logic unchanged — only UI restyled.
+ */
 @Composable
 fun SearchScreen(
     onSongClick: (List<Song>, Int) -> Unit,
@@ -70,78 +79,82 @@ fun SearchScreen(
     val showSuggestions = query.isNotBlank() && query != lastSearched &&
         suggestions.isNotEmpty() && results !is UiState.Loading
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    val isIdle = results == null && query.isBlank()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0A0A))
+    ) {
         Text(
             text = "Search",
-            style = MaterialTheme.typography.headlineMedium,
+            color = Color.White,
+            fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp)
+            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 12.dp)
         )
 
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Songs, artists…") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.clearQuery() }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Clear")
-                        }
+        // Search bar
+        OutlinedTextField(
+            value = query,
+            onValueChange = viewModel::onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            placeholder = { Text("Search songs, artists, albums...", color = Color.White.copy(alpha = 0.4f)) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.6f)) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.clearQuery() }) {
+                        Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = Color.White.copy(alpha = 0.6f))
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { viewModel.search(query) })
-            )
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF9D4EDD),
+                unfocusedBorderColor = Color.Transparent,
+                focusedContainerColor = Color.White.copy(alpha = 0.08f),
+                unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White
+            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { viewModel.search(query) })
+        )
 
-            AnimatedVisibility(
-                visible = showSuggestions,
-                enter = expandVertically(),
-                exit = shrinkVertically()
+        AnimatedVisibility(
+            visible = showSuggestions,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Surface(
+                color = Color(0xFF1E1E1E),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp)
             ) {
-                Surface(
-                    tonalElevation = 4.dp,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
+                LazyColumn(
+                    modifier = Modifier.height(
+                        (48.dp * suggestions.size.coerceAtMost(5)).coerceAtMost(240.dp)
+                    )
                 ) {
-                    LazyColumn(
-                        modifier = Modifier.height(
-                            (48.dp * suggestions.size.coerceAtMost(5)).coerceAtMost(240.dp)
-                        )
-                    ) {
-                        items(suggestions) { suggestion ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { viewModel.search(suggestion) }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Filled.TrendingUp,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = suggestion,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
+                    items(suggestions) { suggestion ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.search(suggestion) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.TrendingUp, null,
+                                tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(suggestion, color = Color.White, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, fontSize = 15.sp)
                         }
                     }
                 }
@@ -152,65 +165,103 @@ fun SearchScreen(
 
         when (val state = results) {
             null -> {
-                // Idle: search history.
-                if (history.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Recent searches",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        TextButton(onClick = { viewModel.clearHistory() }) {
-                            Text("Clear")
-                        }
-                    }
+                if (isIdle) {
+                    // Mockup browse UI
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            horizontal = 16.dp,
-                            vertical = 4.dp
-                        )
+                        contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
+                        // 2x2 category cards
+                        item {
+                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    BrowseCard("Trending", listOf(Color(0xFFE65100), Color(0xFFFF9800)),
+                                        modifier = Modifier.weight(1f), onClick = { viewModel.search("trending") })
+                                    BrowseCard("New Releases", listOf(Color(0xFFAD1457), Color(0xFFE91E63)),
+                                        modifier = Modifier.weight(1f), onClick = { viewModel.search("new releases") })
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    BrowseCard("Charts", listOf(Color(0xFF1565C0), Color(0xFF42A5F5)),
+                                        modifier = Modifier.weight(1f), onClick = { viewModel.search("top charts") })
+                                    BrowseCard("Moods", listOf(Color(0xFF6A1B9A), Color(0xFFE91E63)),
+                                        modifier = Modifier.weight(1f), onClick = { viewModel.search("mood") })
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+
+                        // Browse All
+                        item {
+                            Text("Browse All", color = Color.White, fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        val genres = listOf("Hindi", "Punjabi", "English", "Lo-Fi", "Hip Hop", "Pop", "EDM")
+                        val genreColors = listOf(
+                            Color(0xFFE65100), Color(0xFF2E7D32), Color(0xFF1565C0),
+                            Color(0xFF5D4037), Color(0xFF6A1B9A), Color(0xFFAD1457), Color(0xFF00838F)
+                        )
+                        items(genres.size) { i ->
+                            GenreRow(
+                                name = genres[i],
+                                color = genreColors[i % genreColors.size],
+                                onClick = { viewModel.search(genres[i]) }
+                            )
+                        }
+
+                        // Recent searches below genres
+                        if (history.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Recent searches", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    TextButton(onClick = { viewModel.clearHistory() }) {
+                                        Text("Clear", color = Color(0xFF9D4EDD))
+                                    }
+                                }
+                            }
+                            items(history, key = { it }) { past ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .clickable { viewModel.search(past) }
+                                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Filled.History, null,
+                                        tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(past, color = Color.White, fontSize = 15.sp, maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                } else if (history.isNotEmpty()) {
+                    // History when query typed but no results yet
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(history, key = { it }) { past ->
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth()
                                     .clickable { viewModel.search(past) }
-                                    .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Filled.History,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Icon(Icons.Filled.History, null,
+                                    tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    past,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                AssistChip(
-                                    onClick = { viewModel.search(past) },
-                                    label = { Text("Search") }
-                                )
+                                Text(past, color = Color.White, fontSize = 15.sp, maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             }
                         }
                     }
                 } else {
-                    EmptyView(
-                        message = "Search millions of songs",
-                        hint = "Type above — suggestions appear as you type"
-                    )
+                    EmptyView(message = "Search millions of songs", hint = "Type above — suggestions appear as you type")
                 }
             }
             is UiState.Loading -> LoadingView(message = "Searching…")
@@ -219,7 +270,10 @@ fun SearchScreen(
                 onRetry = { viewModel.search(query.ifBlank { lastSearched }) }
             )
             is UiState.Success -> {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 120.dp)
+                ) {
                     itemsIndexed(state.data, key = { _, s -> s.id }) { index, song ->
                         val fav = song.id in favoriteIds
                         SongRow(
@@ -234,5 +288,45 @@ fun SearchScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BrowseCard(
+    title: String,
+    gradient: List<Color>,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
+) {
+    Box(
+        modifier = modifier
+            .height(96.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Brush.linearGradient(gradient))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun GenreRow(name: String, color: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(color),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(name.first().toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(name, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Icon(Icons.Filled.ChevronRight, null, tint = Color.White.copy(alpha = 0.4f))
     }
 }
