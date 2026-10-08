@@ -18,18 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -53,8 +49,10 @@ import com.musit.player.ui.UiState
 import com.musit.player.ui.components.EmptyView
 import com.musit.player.ui.components.ErrorView
 import com.musit.player.ui.components.LoadingView
-import java.util.Calendar
 
+/**
+ * Echo-style home: mood chips, large featured card, speed dial.
+ */
 @Composable
 fun HomeScreen(
     onSongClick: (List<Song>, Int) -> Unit,
@@ -64,96 +62,95 @@ fun HomeScreen(
 ) {
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val trending by viewModel.trending.collectAsStateWithLifecycle()
-    var selectedChip by remember { mutableStateOf("All") }
+    var selectedMood by remember { mutableStateOf("Energize") }
 
-    val greeting = remember {
-        when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-            in 0..11 -> "Good Morning"
-            in 12..16 -> "Good Afternoon"
-            else -> "Good Evening"
-        }
-    }
+    val moods = listOf("Energize", "Feel good", "Romance", "Relax")
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0A0A)),
+        contentPadding = PaddingValues(bottom = 120.dp)
     ) {
-        // Header: Music logo + search + settings
+        // Header: musit + icons
         item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE91E63)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Music",
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = "musit",
+                    color = Color.White,
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onSearchClick) {
-                    Icon(Icons.Filled.Search, contentDescription = "Search")
+                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color.White.copy(alpha = 0.8f))
                 }
                 IconButton(onClick = onSettingsClick) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color.White.copy(alpha = 0.8f))
                 }
             }
         }
 
-        // Filter chips
+        // Mood chips
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                val chips = listOf("All", "Music", "Podcasts", "Mixes", "Chill")
-                items(chips) { chip ->
-                    FilterChip(
-                        selected = selectedChip == chip,
-                        onClick = { selectedChip = chip },
-                        label = { Text(chip) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFE91E63),
-                            selectedLabelColor = Color.White
+                items(moods) { mood ->
+                    val selected = selectedMood == mood
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (selected) Color.White.copy(alpha = 0.15f)
+                                else Color.White.copy(alpha = 0.07f)
+                            )
+                            .clickable { selectedMood = mood }
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = mood,
+                            color = if (selected) Color.White else Color.White.copy(alpha = 0.6f),
+                            fontSize = 15.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                         )
-                    )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // Hero card
-        if (recents.isNotEmpty()) {
-            item {
-                val heroSong = recents.first()
+        // Featured card (large artwork)
+        item {
+            val featured = when (trending) {
+                is UiState.Success -> (trending as UiState.Success<List<Song>>).data.firstOrNull()
+                else -> null
+            } ?: recents.firstOrNull()
+
+            if (featured != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
-                        .aspectRatio(1.7f)
-                        .clip(RoundedCornerShape(20.dp))
+                        .aspectRatio(1.15f)
+                        .clip(RoundedCornerShape(24.dp))
                         .clickable {
-                            onSongClick(recents, 0)
+                            val list = when (trending) {
+                                is UiState.Success -> (trending as UiState.Success<List<Song>>).data
+                                else -> recents
+                            }
+                            val idx = list.indexOf(featured).coerceAtLeast(0)
+                            onSongClick(list, idx)
                         }
                 ) {
                     AsyncImage(
-                        model = heroSong.artworkUrl,
+                        model = featured.artworkUrl,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -165,8 +162,9 @@ fun HomeScreen(
                                 Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        Color.Black.copy(alpha = 0.7f)
-                                    )
+                                        Color.Black.copy(alpha = 0.75f)
+                                    ),
+                                    startY = 400f
                                 )
                             )
                     )
@@ -176,65 +174,36 @@ fun HomeScreen(
                             .padding(20.dp)
                     ) {
                         Text(
-                            text = greeting,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                        Text(
-                            text = "Laksh",
-                            style = MaterialTheme.typography.headlineMedium,
+                            text = featured.title.uppercase(),
+                            color = Color.White,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Continue where you left off",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(20.dp)
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f))
-                            .clickable { onSongClick(recents, 0) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.PlayArrow,
-                            contentDescription = "Play",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                            text = featured.artist.uppercase(),
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
             }
         }
 
-        // For You
+        // SPEED DIAL section
         if (recents.isNotEmpty()) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "For You",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = ">",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "SPEED DIAL",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
             item {
@@ -242,115 +211,74 @@ fun HomeScreen(
                     contentPadding = PaddingValues(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(recents.take(10), key = { it.id }) { song ->
-                        ForYouCard(
-                            song = song,
-                            onClick = {
-                                val index = recents.indexOfFirst { it.id == song.id }
-                                onSongClick(recents, index.coerceAtLeast(0))
+                    items(recents.take(10)) { song ->
+                        val idx = recents.indexOf(song)
+                        Box(
+                            modifier = Modifier
+                                .size(140.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { onSongClick(recents, idx) }
+                        ) {
+                            AsyncImage(
+                                model = song.artworkUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.PlayArrow,
+                                    contentDescription = "Play",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
                             }
-                        )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
             }
         }
 
-        // Trending
+        // Trending section
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Trending",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = ">",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "TRENDING NOW",
+                color = Color.White.copy(alpha = 0.9f),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        when (val state = trending) {
-            is UiState.Loading -> item {
-                Box(modifier = Modifier.fillMaxWidth().height(240.dp)) {
-                    LoadingView()
-                }
-            }
-            is UiState.Error -> item {
-                Box(modifier = Modifier.fillMaxWidth().height(240.dp)) {
-                    ErrorView(
-                        message = state.message,
-                        onRetry = { viewModel.refreshTrending() }
+        when (val t = trending) {
+            is UiState.Loading -> item { LoadingView() }
+            is UiState.Error -> item { ErrorView(t.message, onRetry = viewModel::refresh) }
+            is UiState.Success -> {
+                items(t.data.take(10)) { song ->
+                    val idx = t.data.indexOf(song)
+                    EchoSongRow(
+                        song = song,
+                        onClick = { onSongClick(t.data, idx) }
                     )
                 }
             }
-            is UiState.Success -> {
-                if (state.data.isEmpty()) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-                            EmptyView("Nothing here yet", hint = "Check your connection and retry")
-                        }
-                    }
-                } else {
-                    items(state.data, key = { it.id }) { song ->
-                        val index = state.data.indexOfFirst { it.id == song.id }
-                        TrendingRow(
-                            song = song,
-                            onClick = { onSongClick(state.data, index.coerceAtLeast(0)) }
-                        )
-                    }
-                }
-            }
+            null -> {}
         }
     }
 }
 
 @Composable
-private fun ForYouCard(song: Song, onClick: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .width(140.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-    ) {
-        AsyncImage(
-            model = song.artworkUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .size(140.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = song.title,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = song.artist,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun TrendingRow(song: Song, onClick: () -> Unit) {
+private fun EchoSongRow(
+    song: Song,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -363,32 +291,32 @@ private fun TrendingRow(song: Song, onClick: () -> Unit) {
             contentDescription = null,
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .clip(RoundedCornerShape(12.dp)),
             contentScale = ContentScale.Crop
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist,
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 14.sp,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = { /* TODO: show options */ }) {
+        IconButton(onClick = onClick) {
             Icon(
-                Icons.Filled.MoreVert,
-                contentDescription = "Options",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                Icons.Filled.PlayArrow,
+                contentDescription = "Play",
+                tint = Color.White.copy(alpha = 0.7f)
             )
         }
     }
