@@ -466,9 +466,29 @@ class Media3PlaybackRepository @Inject constructor(
             retriedCurrent = false
             loadCurrent()
         } else {
-            controller?.pause()
-            controller?.seekTo(0)
-            _isPlaying.value = false
+            // Spotify-style autoplay: queue ended, fetch more songs and continue
+            scope.launch {
+                try {
+                    val more = music.getTrending().getOrNull().orEmpty()
+                        .filter { s -> queueSongs.none { it.id == s.id } }
+                        .take(10)
+                    if (more.isNotEmpty()) {
+                        queueSongs = queueSongs + more
+                        queueIndex = queueSongs.size - more.size
+                        rebuildShuffleOrder()
+                        retriedCurrent = false
+                        loadCurrent()
+                    } else {
+                        controller?.pause()
+                        controller?.seekTo(0)
+                        _isPlaying.value = false
+                    }
+                } catch (e: Exception) {
+                    controller?.pause()
+                    controller?.seekTo(0)
+                    _isPlaying.value = false
+                }
+            }
         }
     }
 
