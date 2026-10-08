@@ -91,9 +91,13 @@ class Media3PlaybackRepository @Inject constructor(
     private var retriedCurrent = false
     private var pollingStarted = false
 
+    private var activeUrls: List<String> = emptyList()
+    private var activeUrlIndex: Int = 0
+
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
+            if (isPlaying) watchdogJob?.cancel()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -248,6 +252,8 @@ class Media3PlaybackRepository @Inject constructor(
         queueIndex = -1
         shuffleOrder = emptyList()
         loadJob?.cancel()
+        watchdogJob?.cancel()
+        activeUrls = emptyList()
         controller?.stop()
         controller?.clearMediaItems()
         _currentSong.value = null
@@ -314,9 +320,17 @@ class Media3PlaybackRepository @Inject constructor(
         loadCurrent()
     }
 
-    /** Resolves the current song's playable URI and starts it. */
+    /** How long to wait for playback to actually start before trying the next URL. */
+    private companion object {
+        const val PLAYBACK_START_TIMEOUT_MS = 12_000L
+    }
+
+    private var watchdogJob: Job? = null
+
+    /** Resolves the current song's playable URIs and starts it, failing over. */
     private fun loadCurrent() {
         loadJob?.cancel()
+        watchdogJob?.cancel()
         val song = queueSongs.getOrNull(queueIndex)
         _currentSong.value = song
         _positionMs.value = 0L
@@ -329,13 +343,16 @@ class Media3PlaybackRepository @Inject constructor(
         }
         _isLoading.value = true
         loadJob = scope.launch {
-            val uri: String? = withContext(Dispatchers.IO) {
-                if (music.isLocal(song)) music.localUri(song.id)
-                else music.streamUrl(song.id).getOrNull()
+            val uris: List<String> = withContext(Dispatchers.IO) {
+                if (music.isLocal(song)) {
+                    listOfNotNull(music.localUri(song.id))
+                } else {
+                    music.streamUrls(song.id).getOrNull().orEmpty()
+                }
             }
             val c = controller
             when {
-                uri.isNullOrEmpty() -> {
+                uris.isEmpty() -> {
                     _isLoading.value = false
                     _playerError.value = if (music.isLocal(song)) {
                         "Couldn't open this audio file."
@@ -347,14 +364,40 @@ class Media3PlaybackRepository @Inject constructor(
                     _isLoading.value = false
                     _playerError.value = "Player isn't ready yet. Try again in a moment."
                 }
-                else -> {
-                    c.setMediaItem(buildMediaItem(song, uri))
-                    c.prepare()
-                    c.play()
-                    _isLoading.value = false
-                    retriedCurrent = false
-                    scope.launch { runCatching { library.addRecent(song) } }
-                }
+                else -> tryPlayUrls(song, uris, 0)
+            }
+        }
+    }
+
+    /** Plays [urls][index]; the watchdog advances to the next URL on stall. */
+    private fun tryPlayUrls(song: Song, urls: List<String>, index: Int) {
+        val c = controller ?: run {
+            _isLoading.value = false
+            _playerError.value = "Player isn't ready yet. Try again in a moment."
+            return
+        }
+        if (index >= urls.size) {
+            _isLoading.value = false
+            _playerError.value = "Couldn't play this song. Try another one."
+            return
+        }
+        activeUrls = urls
+        activeUrlIndex = index
+        c.setMediaItem(buildMediaItem(song, urls[index]))
+        c.prepare()
+        c.play()
+        _isLoading.value = false
+        retriedCurrent = false
+        scope.launch { runCatching { library.addRecent(song) } }
+
+        // Watchdog: if playback hasn't started in time, fail over to the
+        // next URL instead of sitting at 0:00 forever.
+        watchdogJob?.cancel()
+        watchdogJob = scope.launch {
+            delay(PLAYBACK_START_TIMEOUT_MS)
+            val stillCurrent = _currentSong.value?.id == song.id
+            if (stillCurrent && !_isPlaying.value && _playerError.value == null) {
+                tryPlayUrls(song, urls, index + 1)
             }
         }
     }
@@ -376,12 +419,15 @@ class Media3PlaybackRepository @Inject constructor(
 
     private fun handlePlayerError(error: PlaybackException) {
         _isLoading.value = false
-        // One silent automatic retry before bothering the user.
-        if (!retriedCurrent && queueSongs.getOrNull(queueIndex) != null) {
-            retriedCurrent = true
+        watchdogJob?.cancel()
+        // Fail over to the next validated URL before bothering the user.
+        val song = queueSongs.getOrNull(queueIndex)
+        if (song != null && activeUrlIndex + 1 < activeUrls.size) {
             scope.launch {
                 delay(800)
-                loadCurrent()
+                if (_currentSong.value?.id == song.id) {
+                    tryPlayUrls(song, activeUrls, activeUrlIndex + 1)
+                }
             }
             return
         }
