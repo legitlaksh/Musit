@@ -148,9 +148,13 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
         }
 
     override suspend fun getStreamUrl(songId: String): Result<String> =
+        getStreamUrls(songId).map { it.first() }
+
+    override suspend fun getStreamUrls(songId: String): Result<List<String>> =
         withContext(Dispatchers.IO) {
             runCatching {
-                streamCache[songId]?.let { return@runCatching it }
+                streamCache[songId]?.let { return@runCatching listOf(it) }
+                val validated = mutableListOf<String>()
                 val failures = mutableListOf<String>()
                 for (playerClient in streamClients) {
                     val url = try {
@@ -160,15 +164,22 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
                         null
                     }
                     if (url != null && probeStreamUrl(url)) {
-                        streamCache[songId] = url
-                        return@runCatching url
+                        // ratebypass asks googlevideo not to throttle the stream.
+                        val finalUrl = if (url.contains("ratebypass=")) url
+                        else url + "&ratebypass=yes"
+                        validated.add(finalUrl)
+                        if (validated.size >= 3) break
                     } else if (url != null) {
                         failures.add("${playerClient.name}: preview-only/dead URL")
                     }
                 }
-                throw IllegalStateException(
-                    "No playable stream (${failures.take(3).joinToString("; ")})"
-                )
+                if (validated.isEmpty()) {
+                    throw IllegalStateException(
+                        "No playable stream (${failures.take(3).joinToString("; ")})"
+                    )
+                }
+                streamCache[songId] = validated.first()
+                validated
             }
         }
 
