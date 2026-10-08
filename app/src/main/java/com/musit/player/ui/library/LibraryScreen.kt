@@ -62,6 +62,7 @@ fun LibraryScreen(
     onPlayNext: (Song) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
     onOpenPlaylist: (Long) -> Unit,
+    onSearchClick: () -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
@@ -95,7 +96,7 @@ fun LibraryScreen(
             ) {
                 Text("Your Library", color = Color.White, fontSize = 24.sp,
                     fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                IconButton(onClick = {}) {
+                IconButton(onClick = onSearchClick) {
                     Icon(Icons.Filled.Search, null, tint = Color.White.copy(alpha = 0.8f))
                 }
                 IconButton(onClick = { showCreateDialog = true }) {
