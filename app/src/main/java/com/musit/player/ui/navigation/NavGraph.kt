@@ -102,7 +102,9 @@ fun MusitNavGraph(
                             isLoading = isLoading,
                             progress = progress,
                             onTogglePlayPause = { playback.togglePlayPause() },
-                            onTap = { navController.navigate(Routes.PLAYER) }
+                            onTap = { navController.navigate(Routes.PLAYER) },
+                            onNext = { playback.next() },
+                            onPrevious = { playback.previous() }
                         )
                     }
                     NavigationBar {
