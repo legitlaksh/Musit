@@ -125,17 +125,17 @@ object InnerTube {
     }
 
     private fun parseSearchResults(root: JSONObject): List<Song> {
-        val shelves = mutableListOf<JSONObject>()
-        collectObjectsWithKey(root, "musicShelfRenderer", shelves)
+        // Collect song rows from anywhere in the response: YouTube Music puts
+        // results in musicShelfRenderer ("Songs" shelf) but also in
+        // musicCardShelfRenderer ("Top result"), so scan for the item
+        // renderer directly instead of assuming a shelf type.
+        val items = mutableListOf<JSONObject>()
+        collectObjectsWithKey(root, "musicResponsiveListItemRenderer", items)
         val songs = mutableListOf<Song>()
-        for (shelf in shelves) {
-            val contents = shelf.optJSONArray("contents") ?: continue
-            for (i in 0 until contents.length()) {
-                val renderer = contents.optJSONObject(i)
-                    ?.optJSONObject("musicResponsiveListItemRenderer")
-                    ?: continue
-                parseSongItem(renderer)?.let { songs.add(it) }
-            }
+        val seen = mutableSetOf<String>()
+        for (renderer in items) {
+            val song = parseSongItem(renderer) ?: continue
+            if (seen.add(song.videoId)) songs.add(song)
         }
         return songs
     }
