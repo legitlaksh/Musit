@@ -96,20 +96,20 @@ fun EqualizerScreen(
                 "Pop" -> {
                     // Boost mids, slight bass and treble
                     val levels = listOf(200, 300, 100, 200, 300)
-                    for (i in 0 until minOf(eq.numberOfBands, levels.size)) {
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), levels.size)) {
                         eq.setBandLevel(i.toShort(), levels[i].toShort())
                     }
                 }
                 "Rock" -> {
                     // Boost bass and treble, cut mids
                     val levels = listOf(400, 300, -200, 300, 400)
-                    for (i in 0 until minOf(eq.numberOfBands, levels.size)) {
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), levels.size)) {
                         eq.setBandLevel(i.toShort(), levels[i].toShort())
                     }
                 }
                 "Bass" -> {
                     val levels = listOf(600, 400, 100, 0, 0)
-                    for (i in 0 until minOf(eq.numberOfBands, levels.size)) {
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), levels.size)) {
                         eq.setBandLevel(i.toShort(), levels[i].toShort())
                     }
                     bassBoostEffect?.setStrength(800)
@@ -117,19 +117,19 @@ fun EqualizerScreen(
                 }
                 "Classical" -> {
                     val levels = listOf(300, 200, 0, 200, 300)
-                    for (i in 0 until minOf(eq.numberOfBands, levels.size)) {
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), levels.size)) {
                         eq.setBandLevel(i.toShort(), levels[i].toShort())
                     }
                 }
                 "Vocal" -> {
                     val levels = listOf(-200, 100, 400, 300, 100)
-                    for (i in 0 until minOf(eq.numberOfBands, levels.size)) {
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), levels.size)) {
                         eq.setBandLevel(i.toShort(), levels[i].toShort())
                     }
                 }
                 "Dance" -> {
                     val levels = listOf(500, 300, 100, 200, 400)
-                    for (i in 0 until minOf(eq.numberOfBands, levels.size)) {
+                    for (i in 0 until minOf(eq.numberOfBands.toInt(), levels.size)) {
                         eq.setBandLevel(i.toShort(), levels[i].toShort())
                     }
                     bassBoostEffect?.setStrength(600)
@@ -199,7 +199,7 @@ fun EqualizerScreen(
                     value = bassBoost.toFloat(),
                     onValueChange = {
                         bassBoost = it.toInt()
-                        bassBoostEffect?.setStrength((it * 10).toShort())
+                        bassBoostEffect?.setStrength((it * 10).toInt().toShort())
                     },
                     valueRange = 0f..100f,
                     modifier = Modifier.weight(1f),
