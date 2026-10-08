@@ -26,6 +26,13 @@ interface MusicSource {
      */
     suspend fun getStreamUrl(songId: String): Result<String>
 
+    /**
+     * All validated playable audio URLs for [songId], best first.
+     * The player tries them in order until one actually plays —
+     * a URL that probes fine can still stall on some networks.
+     */
+    suspend fun getStreamUrls(songId: String): Result<List<String>>
+
     /** Songs for the Home screen's trending/quick-picks shelves. */
     suspend fun getTrending(): Result<List<Song>>
 }
