@@ -75,8 +75,4 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
-
-    // InnerTube-compatible library for YouTube metadata (search, thumbnails).
-    // Playback uses YouTube's supported embed player, not extracted URLs.
-    implementation("com.github.TeamNewPipe:extractor:0.24.7")
 }
