@@ -27,8 +27,19 @@ class ArtistViewModel @Inject constructor(
         viewModelScope.launch {
             _songs.value = UiState.Loading
             try {
-                val results = musicSource.search(artistName)
-                _songs.value = UiState.Success(results)
+                val result = musicSource.search(artistName)
+                result.fold(
+                    onSuccess = { songs ->
+                        _songs.value = if (songs.isEmpty()) {
+                            UiState.Error("No songs found for $artistName")
+                        } else {
+                            UiState.Success(songs)
+                        }
+                    },
+                    onFailure = { e ->
+                        _songs.value = UiState.Error(e.message ?: "Failed to load artist songs")
+                    }
+                )
             } catch (e: Exception) {
                 _songs.value = UiState.Error(e.message ?: "Failed to load artist songs")
             }
