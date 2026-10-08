@@ -19,6 +19,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Equalizer
@@ -77,7 +80,11 @@ fun QueueScreen(
         accumulatedPx = 0f
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0A0A0A))
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -87,17 +94,18 @@ fun QueueScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
                 }
                 Text(
-                    "Queue",
-                    style = MaterialTheme.typography.titleLarge,
+                    "Up Next",
+                    color = Color.White,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
             if (upcoming.isNotEmpty()) {
                 TextButton(onClick = { showClearConfirm = true }) {
-                    Text("Clear")
+                    Text("Clear", color = Color.White.copy(alpha = 0.6f))
                 }
             }
         }
