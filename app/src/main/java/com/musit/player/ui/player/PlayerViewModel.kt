@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.musit.player.data.repository.LibraryRepository
 import com.musit.player.model.Song
 import com.musit.player.player.PlaybackRepository
+import com.musit.player.player.SleepTimer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +17,8 @@ import javax.inject.Inject
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     val playback: PlaybackRepository,
-    private val library: LibraryRepository
+    private val library: LibraryRepository,
+    val sleepTimer: SleepTimer
 ) : ViewModel() {
 
     val favoriteIds: StateFlow<Set<String>> =
