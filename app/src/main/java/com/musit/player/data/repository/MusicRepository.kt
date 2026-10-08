@@ -42,6 +42,9 @@ class MusicRepository @Inject constructor(
     /** Validated playable audio URL for [songId]. */
     suspend fun streamUrl(songId: String): Result<String> = source.getStreamUrl(songId)
 
+    /** All validated playable audio URLs for [songId], best first. */
+    suspend fun streamUrls(songId: String): Result<List<String>> = source.getStreamUrls(songId)
+
     // ------------------------------------------------------------------
     // local (on-device) songs
     // ------------------------------------------------------------------
