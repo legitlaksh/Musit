@@ -48,9 +48,12 @@ object Routes {
     const val PLAYER = "player"
     const val QUEUE = "queue"
     const val PLAYLIST = "playlist/{playlistId}"
+    const val ARTIST = "artist/{artistName}"
+    const val EQUALIZER = "equalizer"
 
     fun playlist(playlistId: Long) = "playlist/$playlistId"
     fun search(query: String) = "search?query=$query"
+    fun artist(artistName: String) = "artist/$artistName"
 }
 
 private data class BottomTab(val route: String, val label: String, val icon: ImageVector)
@@ -183,7 +186,10 @@ fun MusitNavGraph(
             composable(Routes.PLAYER) {
                 PlayerScreen(
                     onClose = { navController.popBackStack() },
-                    onOpenQueue = { navController.navigate(Routes.QUEUE) }
+                    onOpenQueue = { navController.navigate(Routes.QUEUE) },
+                    onArtistClick = { artistName ->
+                        navController.navigate(Routes.artist(artistName))
+                    }
                 )
             }
             composable(Routes.QUEUE) {
@@ -198,6 +204,22 @@ fun MusitNavGraph(
                     playlistId = playlistId,
                     onBack = { navController.popBackStack() },
                     onSongClick = ::playAndOpenPlayer
+                )
+            }
+            composable(
+                route = Routes.ARTIST,
+                arguments = listOf(navArgument("artistName") { type = NavType.StringType })
+            ) { entry ->
+                val artistName = entry.arguments?.getString("artistName") ?: return@composable
+                com.musit.player.ui.artist.ArtistDetailScreen(
+                    artistName = artistName,
+                    onBack = { navController.popBackStack() },
+                    onSongClick = ::playAndOpenPlayer
+                )
+            }
+            composable(Routes.EQUALIZER) {
+                com.musit.player.ui.equalizer.EqualizerScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
         }
