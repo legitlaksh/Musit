@@ -260,7 +260,10 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
                 .get()
                 .build()
             client.newCall(request).execute().use { response ->
-                response.code == 206
+                // 206 = proper ranged response. 200 = the server (or a carrier
+                // proxy) ignored the Range header but is still serving the
+                // file — the URL is valid and playable.
+                response.code == 206 || response.code == 200
             }
         } catch (e: Exception) {
             false
