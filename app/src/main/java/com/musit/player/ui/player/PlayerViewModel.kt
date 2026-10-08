@@ -1,0 +1,30 @@
+package com.musit.player.ui.player
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.musit.player.data.repository.LibraryRepository
+import com.musit.player.model.Song
+import com.musit.player.player.PlaybackRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class PlayerViewModel @Inject constructor(
+    val playback: PlaybackRepository,
+    private val library: LibraryRepository
+) : ViewModel() {
+
+    val favoriteIds: StateFlow<Set<String>> =
+        library.observeFavorites()
+            .map { songs -> songs.map { it.id }.toSet() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun toggleFavorite(song: Song, currentlyFavorite: Boolean) {
+        viewModelScope.launch { library.toggleFavorite(song, currentlyFavorite) }
+    }
+}
