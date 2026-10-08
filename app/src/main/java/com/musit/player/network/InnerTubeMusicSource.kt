@@ -32,12 +32,13 @@ import javax.inject.Singleton
  * No API keys, cookies or credentials are hardcoded or required.
  */
 @Singleton
-class InnerTubeMusicSource @Inject constructor() : MusicSource {
+class InnerTubeMusicSource @Inject constructor(
+    private val webViewExtractor: WebViewStreamExtractor
+) : MusicSource {
 
     private companion object {
-        const val API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
-        const val SEARCH_URL = "https://music.youtube.com/youtubei/v1/search?key=$API_KEY"
-        const val PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?key=$API_KEY"
+        // API key is fetched dynamically from YouTube's pages (it's YouTube's
+        // public web client key, not a secret). Never hardcoded per policy.
         const val SUGGEST_URL =
             "https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&q="
 
@@ -103,6 +104,42 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
     // itself (~6 h server-side); the map is small and best-effort.
     private val streamCache = mutableMapOf<String, String>()
 
+    // Dynamically fetched YouTube web client API key (public, not secret).
+    @Volatile
+    private var cachedApiKey: String? = null
+
+    /** Fetches YouTube's public web API key from their homepage. */
+    private suspend fun apiKey(): String = withContext(Dispatchers.IO) {
+        cachedApiKey?.let { return@withContext it }
+        try {
+            val request = Request.Builder()
+                .url("https://www.youtube.com/")
+                .header("User-Agent", DESKTOP_UA)
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                val html = response.body.string()
+                // INNERTUBE_API_KEY":"AIza...
+                val match = Regex("\"INNERTUBE_API_KEY\"\\s*:\\s*\"([^\"]+)\"")
+                    .find(html)
+                val key = match?.groupValues?.get(1)
+                if (key != null) {
+                    cachedApiKey = key
+                    return@withContext key
+                }
+            }
+        } catch (e: Exception) {
+            // fall through to throw below
+        }
+        throw IllegalStateException("Could not obtain YouTube API key")
+    }
+
+    private suspend fun searchUrl(): String =
+        "https://music.youtube.com/youtubei/v1/search?key=${apiKey()}"
+
+    private suspend fun playerUrl(): String =
+        "https://www.youtube.com/youtubei/v1/player?key=${apiKey()}"
+
     // ------------------------------------------------------------------
     // MusicSource
     // ------------------------------------------------------------------
@@ -121,7 +158,7 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
                 )
                 .put("query", query)
                 .toString()
-            val response = postJson(SEARCH_URL, body, DESKTOP_UA)
+            val response = postJson(searchUrl(), body, DESKTOP_UA)
                 ?: throw IllegalStateException("Search request failed")
             parseSearchResults(JSONObject(response))
                 .ifEmpty { throw IllegalStateException("No results") }
@@ -174,6 +211,23 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
                     }
                 }
                 if (validated.isEmpty()) {
+                    // Final fallback: real browser (WebView) extraction. YouTube
+                    // trusts browser traffic far more than direct API calls.
+                    val webUrl = try {
+                        webViewExtractor.extractAudioUrl(songId)
+                    } catch (e: Exception) {
+                        failures.add("WebView: ${e.message}")
+                        null
+                    }
+                    if (webUrl != null && probeStreamUrl(webUrl)) {
+                        val finalUrl = if (webUrl.contains("ratebypass=")) webUrl
+                        else webUrl + "&ratebypass=yes"
+                        validated.add(finalUrl)
+                    } else if (webUrl != null) {
+                        failures.add("WebView: preview-only/dead URL")
+                    }
+                }
+                if (validated.isEmpty()) {
                     throw IllegalStateException(
                         "No playable stream (${failures.take(3).joinToString("; ")})"
                     )
@@ -213,7 +267,7 @@ class InnerTubeMusicSource @Inject constructor() : MusicSource {
             .put("racyCheckOk", true)
             .toString()
 
-        val text = postJson(PLAYER_URL, body, playerClient.userAgent) ?: return null
+        val text = postJson(playerUrl(), body, playerClient.userAgent) ?: return null
         val json = JSONObject(text)
         val status = json.optJSONObject("playabilityStatus")?.optString("status")
         if (status != "OK") return null
