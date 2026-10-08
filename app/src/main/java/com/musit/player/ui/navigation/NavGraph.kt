@@ -153,6 +153,9 @@ fun MusitNavGraph(
                     },
                     onDownloadsClick = {
                         navController.navigate(Routes.LIBRARY)
+                    },
+                    onSettingsClick = {
+                        navController.navigate(Routes.SETTINGS)
                     }
                 )
             }
@@ -177,7 +180,8 @@ fun MusitNavGraph(
                     onSongClick = ::playAndOpenPlayer,
                     onPlayNext = mainViewModel::playNext,
                     onAddToPlaylist = mainViewModel::requestAddToPlaylist,
-                    onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) }
+                    onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                    onSearchClick = { navController.navigate(Routes.SEARCH) }
                 )
             }
             composable(Routes.SETTINGS) {
