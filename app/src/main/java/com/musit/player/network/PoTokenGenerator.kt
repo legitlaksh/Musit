@@ -1,16 +1,19 @@
 package com.musit.player.network
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -22,223 +25,216 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Generates YouTube Proof-of-Origin (poToken) tokens via a WebView running
- * YouTube's BotGuard. The token goes in `serviceIntegrityDimensions.poToken`
- * of InnerTube player requests, which is what convinces YouTube the request
- * comes from a real client rather than a bot.
+ * Generates YouTube PO tokens by running BotGuard in a hidden WebView.
+ *
+ * Flow:
+ *  1. POST Create            -> scrambled challenge (JSON array)
+ *  2. descramble + parse     -> interpreter JS, program, globalName
+ *  3. WebView runs VM        -> botguardResponse
+ *  4. POST GenerateIT        -> integrity token (base64) + ttl
+ *  5. WebView builds minter  -> mint(identifier) -> base64url PO token
+ *
+ * Usage: getPoToken(videoId) for the player request,
+ *        getPoToken(visitorData) for the stream URL (&pot=).
  */
 @Singleton
 class PoTokenGenerator @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private companion object {
+        const val TAG = "PoToken"
+        const val CREATE_URL = "https://jnn-pa.googleapis.com/\$rpc/google.internal.waa.v1.Waa/Create"
+        const val GENERATE_IT_URL = "https://jnn-pa.googleapis.com/\$rpc/google.internal.waa.v1.Waa/GenerateIT"
         const val REQUEST_KEY = "O43z0dpjhgX20SCx4KAo"
-        const val INIT_TIMEOUT_MS = 30_000L
+        const val GOOG_API_KEY = "AIzaSyDyT5W0Jh49F30Pqqtyfdf7pDLFKLJoAnw"
+        const val UA =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        const val INIT_TIMEOUT_MS = 40_000L
         const val MINT_TIMEOUT_MS = 15_000L
     }
 
-    private val httpClient = OkHttpClient.Builder()
+    private val http = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
-    private val jsonType = "application/json".toMediaType()
+    private val jspb = "application/json+protobuf".toMediaType()
 
-    private val initMutex = Mutex()
+    private val lock = Mutex()
     private var webView: WebView? = null
-    private var initDeferred: CompletableDeferred<Boolean>? = null
-    private var mintDeferred: CompletableDeferred<String>? = null
-    private val mintMutex = Mutex()
+    private var expiresAtMs = 0L
 
-    /**
-     * Returns a poToken for [videoId], initializing the WebView/BotGuard on
-     * first use. Returns null if token generation fails.
-     */
-    suspend fun getPoToken(videoId: String): String? {
-        if (!ensureInitialized()) return null
-        return mintMutex.withLock {
-            withTimeoutOrNull(MINT_TIMEOUT_MS) {
-                mintToken(videoId)
-            }
-        }
-    }
+    @Volatile private var pageLoaded: CompletableDeferred<Unit>? = null
+    @Volatile private var bgResult: CompletableDeferred<String>? = null
+    @Volatile private var minterReady: CompletableDeferred<Unit>? = null
+    @Volatile private var mintResult: CompletableDeferred<String>? = null
 
-    private suspend fun ensureInitialized(): Boolean {
-        initMutex.withLock {
-            initDeferred?.let { return it.await() }
-            val deferred = CompletableDeferred<Boolean>()
-            initDeferred = deferred
-            try {
-                val ok = withTimeoutOrNull(INIT_TIMEOUT_MS) {
-                    initWebView()
-                    deferred.await()
-                } ?: false
-                if (!ok) {
-                    initDeferred = null
-                    cleanup()
-                }
-                return ok
-            } catch (e: Exception) {
-                initDeferred = null
-                cleanup()
-                return false
-            }
-        }
-    }
-
-    private suspend fun initWebView() = withContext(Dispatchers.Main) {
-        val wv = WebView(context)
-        webView = wv
-        wv.settings.javaScriptEnabled = true
-        wv.settings.blockNetworkLoads = true
-        wv.addJavascriptInterface(Bridge(), "MusitPoToken")
-
-        val html = context.assets.open("po_token.html").bufferedReader().use { it.readText() }
-        // Trigger downloadAndRunBotguard() after the page loads.
-        val patched = html.replaceFirst(
-            "</script>",
-            "\nMusitPoToken.downloadAndRunBotguard()</script>"
-        )
-        wv.loadDataWithBaseURL("https://www.youtube.com", patched, "text/html", "utf-8", null)
-    }
-
-    private suspend fun mintToken(videoId: String): String? = withContext(Dispatchers.Main) {
-        val deferred = CompletableDeferred<String>()
-        mintDeferred = deferred
+    /** Returns a base64url PO token bound to [identifier], or null on failure. */
+    suspend fun getPoToken(identifier: String): String? = lock.withLock {
         try {
-            // Identifier is the videoId as bytes; JS converts to Uint8Array.
-            val js = """
-                (function() {
-                    try {
-                        var idBytes = new TextEncoder().encode("$videoId");
-                        obtainPoToken(idBytes).then(function(tokenBytes) {
-                            var binary = "";
-                            for (var i = 0; i < tokenBytes.length; i++) {
-                                binary += String.fromCharCode(tokenBytes[i]);
-                            }
-                            MusitPoToken.onPoTokenMinted(btoa(binary));
-                        }).catch(function(e) {
-                            MusitPoToken.onPoTokenError(e.message || ("" + e));
-                        });
-                    } catch (e) {
-                        MusitPoToken.onPoTokenError(e.message || ("" + e));
-                    }
-                })();
-            """.trimIndent()
-            webView?.evaluateJavascript(js, null)
-            deferred.await()
-        } catch (e: Exception) {
+            if (webView == null || System.currentTimeMillis() >= expiresAtMs) {
+                init()
+            }
+            mint(identifier)
+        } catch (e: Throwable) {
+            Log.e(TAG, "getPoToken failed: ${e.message}", e)
+            destroy()
             null
-        } finally {
-            mintDeferred = null
         }
     }
 
-    private fun cleanup() {
-        try {
-            webView?.stopLoading()
-            webView?.destroy()
-        } catch (e: Exception) {
-            // ignore
+    // ------------------------------------------------------------------
+
+    private suspend fun init() {
+        destroy()
+        withTimeout(INIT_TIMEOUT_MS) {
+            // 1-2. challenge
+            val raw = withContext(Dispatchers.IO) { post(CREATE_URL, JSONArray().put(REQUEST_KEY).toString()) }
+            val challenge = parseChallenge(raw)
+            Log.d(TAG, "challenge ok: global=${challenge.getString("globalName")}")
+
+            // 3. WebView + BotGuard
+            startWebView()
+            bgResult = CompletableDeferred()
+            evalJs("bgRun(${challenge});")
+            val botguardResponse = bgResult!!.await()
+            Log.d(TAG, "botguard response len=${botguardResponse.length}")
+
+            // 4. integrity token. Response is an ARRAY:
+            //    [integrityTokenB64, ttlSeconds, refreshThreshold, fallbackToken]
+            val itRaw = withContext(Dispatchers.IO) {
+                post(
+                    GENERATE_IT_URL,
+                    JSONArray().put(REQUEST_KEY).put(botguardResponse).toString()
+                )
+            }
+            val itArr = JSONArray(itRaw)
+            val integrityToken = itArr.getString(0)
+            val ttlSec = itArr.optLong(1, 3600L)
+            expiresAtMs = System.currentTimeMillis() + (ttlSec * 1000L * 9 / 10)
+            Log.d(TAG, "integrity token ok, ttl=${ttlSec}s")
+
+            // 5. minter
+            minterReady = CompletableDeferred()
+            evalJs("bgCreateMinter(${JSONObject.quote(integrityToken)});")
+            minterReady!!.await()
+            Log.d(TAG, "minter ready")
         }
+    }
+
+    private suspend fun mint(identifier: String): String = withTimeout(MINT_TIMEOUT_MS) {
+        mintResult = CompletableDeferred()
+        evalJs("bgMint(${JSONObject.quote(identifier)});")
+        mintResult!!.await()
+    }
+
+    /** Descramble (if needed) and extract what the WebView needs. */
+    private fun parseChallenge(raw: String): JSONObject {
+        var arr = JSONArray(raw)
+        // Scrambled form: [messageId, "<scrambled base64>"]
+        if (arr.length() > 1 && arr.opt(1) is String) {
+            arr = JSONArray(descramble(arr.getString(1)))
+        }
+        // [messageId, wrappedScript, wrappedUrl, hash, program, globalName, ?, experiments]
+        val wrappedScript = arr.optJSONArray(1)
+        var script: String? = null
+        if (wrappedScript != null) {
+            for (i in 0 until wrappedScript.length()) {
+                val v = wrappedScript.opt(i)
+                if (v is String && v.isNotEmpty()) { script = v; break }
+            }
+        }
+        val program = arr.optString(4)
+        val globalName = arr.optString(5)
+        require(!script.isNullOrEmpty() && program.isNotEmpty() && globalName.isNotEmpty()) {
+            "unexpected challenge shape (script=${script != null}, program=${program.isNotEmpty()}, global=$globalName)"
+        }
+        return JSONObject()
+            .put("interpreterJs", script)
+            .put("program", program)
+            .put("globalName", globalName)
+    }
+
+    /** base64 (url-safe tolerant) -> each byte + 97 -> UTF-8 text. */
+    private fun descramble(s: String): String {
+        val std = s.replace('-', '+').replace('_', '/').replace('.', '=')
+        val bytes = Base64.decode(std, Base64.DEFAULT)
+        val out = ByteArray(bytes.size) { ((bytes[it].toInt() + 97) and 0xFF).toByte() }
+        return String(out, Charsets.UTF_8)
+    }
+
+    private fun post(url: String, body: String): String {
+        val req = Request.Builder()
+            .url(url)
+            .header("Content-Type", "application/json+protobuf")
+            .header("x-goog-api-key", GOOG_API_KEY)
+            .header("x-user-agent", "grpc-web-javascript/0.1")
+            .header("User-Agent", UA)
+            .post(body.toRequestBody(jspb))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val text = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                error("HTTP ${resp.code} from ${url.substringAfterLast('/')}: ${text.take(200)}")
+            }
+            return text
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // WebView plumbing
+    // ------------------------------------------------------------------
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private suspend fun startWebView() {
+        val loaded = CompletableDeferred<Unit>()
+        pageLoaded = loaded
+        withContext(Dispatchers.Main) {
+            val wv = WebView(context)
+            wv.settings.javaScriptEnabled = true
+            wv.addJavascriptInterface(Bridge(), "MusitPoToken")
+            wv.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    loaded.complete(Unit)
+                }
+            }
+            val html = context.assets.open("po_token.html").bufferedReader().use { it.readText() }
+            wv.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+            webView = wv
+        }
+        loaded.await()
+    }
+
+    private suspend fun evalJs(js: String) = withContext(Dispatchers.Main) {
+        webView?.evaluateJavascript(js, null)
+    }
+
+    private fun destroy() {
+        val wv = webView
         webView = null
+        expiresAtMs = 0L
+        if (wv != null) {
+            wv.post {
+                try { wv.stopLoading(); wv.destroy() } catch (_: Exception) {}
+            }
+        }
     }
 
     private inner class Bridge {
-        @JavascriptInterface
-        fun downloadAndRunBotguard() {
-            Thread {
-                try {
-                    val challengeJson = postBotguard(
-                        "https://www.youtube.com/api/jnn/v1/Create",
-                        JSONArray().put(REQUEST_KEY).toString()
-                    ) ?: throw IllegalStateException("Create failed")
-                    // challengeJson is like {"globalName": "...", "program": "...", ...}
-                    val escaped = JSONObject.quote(challengeJson)
-                    val js = """
-                        try {
-                            var data = JSON.parse($escaped);
-                            runBotGuard(data).then(function(result) {
-                                this.webPoSignalOutput = result.webPoSignalOutput;
-                                MusitPoToken.onRunBotguardResult(result.botguardResponse);
-                            }).catch(function(e) {
-                                MusitPoToken.onJsError("runBotGuard: " + (e.message || e));
-                            });
-                        } catch (e) {
-                            MusitPoToken.onJsError("parse: " + (e.message || e));
-                        }
-                    """.trimIndent()
-                    webView?.post { webView?.evaluateJavascript(js, null) }
-                } catch (e: Exception) {
-                    initDeferred?.complete(false)
-                }
-            }.start()
+        @JavascriptInterface fun onBotguardResult(response: String) {
+            bgResult?.complete(response)
         }
-
-        @JavascriptInterface
-        fun onRunBotguardResult(botguardResponse: String) {
-            Thread {
-                try {
-                    val respJson = postBotguard(
-                        "https://www.youtube.com/api/jnn/v1/GenerateIT",
-                        JSONArray().put(REQUEST_KEY).put(botguardResponse).toString()
-                    ) ?: throw IllegalStateException("GenerateIT failed")
-                    // Response: {"integrityToken": "...", "expirationTimeInSeconds": ...}
-                    // integrityToken is a JSON-encoded Uint8Array-ish structure; pass raw.
-                    val obj = JSONObject(respJson)
-                    val integrityToken = obj.get("integrityToken").toString()
-                    val js = """
-                        try {
-                            this.integrityToken = $integrityToken;
-                            createPoTokenMinter(webPoSignalOutput, integrityToken).then(function() {
-                                MusitPoToken.onMinterCreated();
-                            }).catch(function(e) {
-                                MusitPoToken.onJsError("minter: " + (e.message || e));
-                            });
-                        } catch (e) {
-                            MusitPoToken.onJsError("minterSync: " + (e.message || e));
-                        }
-                    """.trimIndent()
-                    webView?.post { webView?.evaluateJavascript(js, null) }
-                } catch (e: Exception) {
-                    initDeferred?.complete(false)
-                }
-            }.start()
+        @JavascriptInterface fun onMinterCreated() {
+            minterReady?.complete(Unit)
         }
-
-        @JavascriptInterface
-        fun onMinterCreated() {
-            initDeferred?.complete(true)
+        @JavascriptInterface fun onPoToken(identifier: String, token: String) {
+            mintResult?.complete(token)
         }
-
-        @JavascriptInterface
-        fun onPoTokenMinted(base64Token: String) {
-            mintDeferred?.complete(base64Token)
-        }
-
-        @JavascriptInterface
-        fun onPoTokenError(error: String) {
-            mintDeferred?.completeExceptionally(IllegalStateException(error))
-        }
-
-        @JavascriptInterface
-        fun onJsError(error: String) {
-            initDeferred?.complete(false)
-        }
-    }
-
-    private fun postBotguard(url: String, body: String): String? {
-        return try {
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
-                .header("Content-Type", "application/json")
-                .post(body.toRequestBody(jsonType))
-                .build()
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) null else response.body?.string()
-            }
-        } catch (e: Exception) {
-            null
+        @JavascriptInterface fun onError(message: String) {
+            Log.e(TAG, "JS error: $message")
+            val ex = IllegalStateException(message)
+            bgResult?.completeExceptionally(ex)
+            minterReady?.completeExceptionally(ex)
+            mintResult?.completeExceptionally(ex)
         }
     }
 }
