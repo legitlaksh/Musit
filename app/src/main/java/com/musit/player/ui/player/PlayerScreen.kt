@@ -137,10 +137,8 @@ fun PlayerScreen(
                         tint = Color.White, modifier = Modifier.size(28.dp))
                 }
                 Text("Now Playing", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                IconButton(onClick = {}) {
-                    Icon(Icons.Filled.MoreVert, "More",
-                        tint = Color.White, modifier = Modifier.size(24.dp))
-                }
+                // More button removed - use secondary row actions instead
+                Spacer(modifier = Modifier.size(48.dp))
             }
         }
 
