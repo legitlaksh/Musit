@@ -67,8 +67,15 @@ fun SearchScreen(
     onPlayNext: (Song) -> Unit,
     onToggleFavorite: (Song, Boolean) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
+    initialQuery: String = "",
     viewModel: SearchViewModel = hiltViewModel()
 ) {
+    // Auto-search when navigated with a query (e.g., from mood chips)
+    androidx.compose.runtime.LaunchedEffect(initialQuery) {
+        if (initialQuery.isNotBlank()) {
+            viewModel.search(initialQuery)
+        }
+    }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
