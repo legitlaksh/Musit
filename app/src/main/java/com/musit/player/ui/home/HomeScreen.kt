@@ -67,7 +67,18 @@ fun HomeScreen(
 ) {
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val trending by viewModel.trending.collectAsStateWithLifecycle()
+    val smartMix by viewModel.smartMix.collectAsStateWithLifecycle()
     var selectedChip by remember { mutableStateOf("All") }
+
+    // Auto-play smart mix when generated
+    androidx.compose.runtime.LaunchedEffect(smartMix) {
+        if (smartMix is UiState.Success) {
+            val songs = (smartMix as UiState.Success<List<Song>>).data
+            if (songs.isNotEmpty()) {
+                onSongClick(songs, 0)
+            }
+        }
+    }
 
     val greeting = remember {
         when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
@@ -182,7 +193,7 @@ fun HomeScreen(
                         title = "Your Mix",
                         bgColor = Color(0xFF6A1B9A),
                         modifier = Modifier.weight(1f),
-                        onClick = { onMoodClick("Your Mix") }
+                        onClick = { viewModel.generateSmartMix() }
                     )
                 }
             }
