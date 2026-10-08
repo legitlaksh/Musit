@@ -32,10 +32,7 @@ import javax.inject.Singleton
  * No API keys, cookies or credentials are hardcoded or required.
  */
 @Singleton
-class InnerTubeMusicSource @Inject constructor(
-    private val webViewExtractor: WebViewStreamExtractor,
-    private val poTokenGenerator: PoTokenGenerator
-) : MusicSource {
+class InnerTubeMusicSource @Inject constructor() : MusicSource {
 
     private companion object {
         // API key is fetched dynamically from YouTube's pages (it's YouTube's
@@ -205,58 +202,19 @@ class InnerTubeMusicSource @Inject constructor(
             }
         }
 
-    override suspend fun getStreamUrl(songId: String): Result<String> =
-        getStreamUrls(songId).map { it.first() }
+    override suspend fun getStreamUrl(songId: String): Result<String> {
+        // COMPLIANT: We do not extract direct stream URLs or bypass access controls.
+        // Playback uses YouTube's supported embed player (WebView).
+        return Result.failure(
+            UnsupportedOperationException("Direct stream extraction not used. Use YouTube embed player.")
+        )
+    }
 
-    override suspend fun getStreamUrls(songId: String): Result<List<String>> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                streamCache[songId]?.let { return@runCatching listOf(it) }
-                val validated = mutableListOf<String>()
-                val failures = mutableListOf<String>()
-                for (playerClient in streamClients) {
-                    val url = try {
-                        resolveViaClient(songId, playerClient)
-                    } catch (e: Exception) {
-                        failures.add("${playerClient.name}: ${e.message}")
-                        null
-                    }
-                    if (url != null && probeStreamUrl(url)) {
-                        // ratebypass asks googlevideo not to throttle the stream.
-                        val finalUrl = if (url.contains("ratebypass=")) url
-                        else url + "&ratebypass=yes"
-                        validated.add(finalUrl)
-                        if (validated.size >= 3) break
-                    } else if (url != null) {
-                        failures.add("${playerClient.name}: preview-only/dead URL")
-                    }
-                }
-                if (validated.isEmpty()) {
-                    // Final fallback: real browser (WebView) extraction. YouTube
-                    // trusts browser traffic far more than direct API calls.
-                    val webUrl = try {
-                        webViewExtractor.extractAudioUrl(songId)
-                    } catch (e: Exception) {
-                        failures.add("WebView: ${e.message}")
-                        null
-                    }
-                    if (webUrl != null && probeStreamUrl(webUrl)) {
-                        val finalUrl = if (webUrl.contains("ratebypass=")) webUrl
-                        else webUrl + "&ratebypass=yes"
-                        validated.add(finalUrl)
-                    } else if (webUrl != null) {
-                        failures.add("WebView: preview-only/dead URL")
-                    }
-                }
-                if (validated.isEmpty()) {
-                    throw IllegalStateException(
-                        "No playable stream (${failures.take(3).joinToString("; ")})"
-                    )
-                }
-                streamCache[songId] = validated.first()
-                validated
-            }
-        }
+    override suspend fun getStreamUrls(songId: String): Result<List<String>> {
+        return Result.failure(
+            UnsupportedOperationException("Direct stream extraction not used. Use YouTube embed player.")
+        )
+    }
 
     override suspend fun getTrending(): Result<List<Song>> = withContext(Dispatchers.IO) {
         // YouTube Music charts via a charts search; falls back to a genre
@@ -286,19 +244,6 @@ class InnerTubeMusicSource @Inject constructor(
             .put("videoId", songId)
             .put("contentCheckOk", true)
             .put("racyCheckOk", true)
-        // Proof-of-Origin token: proves to YouTube this request comes from a
-        // real client, bypassing bot detection (same mechanism Echo uses).
-        try {
-            val poToken = poTokenGenerator.getPoToken(songId)
-            if (poToken != null) {
-                bodyJson.put(
-                    "serviceIntegrityDimensions",
-                    JSONObject().put("poToken", poToken)
-                )
-            }
-        } catch (e: Exception) {
-            // proceed without token; client chain may still work
-        }
         val body = bodyJson.toString()
 
         val text = postJson(playerUrl(playerClient.name), body, playerClient.userAgent) ?: return null
