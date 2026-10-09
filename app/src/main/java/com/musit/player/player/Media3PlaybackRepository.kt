@@ -477,7 +477,23 @@ class Media3PlaybackRepository @Inject constructor(
 
     /** Moves to the next song in play order, wrapping/stopping per repeat mode. */
     private fun advance() {
-        if (queueSongs.isEmpty() || queueIndex < 0) return
+        if (queueSongs.isEmpty() || queueIndex < 0) {
+            // No queue - try autoplay with trending
+            scope.launch {
+                try {
+                    val more = music.trending().getOrNull().orEmpty().take(10)
+                    if (more.isNotEmpty()) {
+                        queueSongs.clear()
+                        queueSongs.addAll(more)
+                        queueIndex = 0
+                        rebuildShuffleOrder()
+                        retriedCurrent = false
+                        loadCurrent()
+                    }
+                } catch (e: Exception) { }
+            }
+            return
+        }
         val order = playOrder()
         val pos = order.indexOf(queueIndex)
         if (pos + 1 < order.size) {
