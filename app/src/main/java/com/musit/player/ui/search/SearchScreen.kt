@@ -24,10 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mood
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -183,15 +187,19 @@ fun SearchScreen(
                             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     BrowseCard("Trending", listOf(Color(0xFFE65100), Color(0xFFFF9800)),
+                                        Icons.Filled.TrendingUp,
                                         modifier = Modifier.weight(1f), onClick = { viewModel.search("trending") })
                                     BrowseCard("New Releases", listOf(Color(0xFFAD1457), Color(0xFFE91E63)),
+                                        Icons.Filled.NewReleases,
                                         modifier = Modifier.weight(1f), onClick = { viewModel.search("new releases") })
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     BrowseCard("Charts", listOf(Color(0xFF1565C0), Color(0xFF42A5F5)),
+                                        Icons.Filled.BarChart,
                                         modifier = Modifier.weight(1f), onClick = { viewModel.search("top charts") })
                                     BrowseCard("Moods", listOf(Color(0xFF6A1B9A), Color(0xFFE91E63)),
+                                        Icons.Filled.Mood,
                                         modifier = Modifier.weight(1f), onClick = { viewModel.search("mood") })
                                 }
                             }
@@ -302,6 +310,7 @@ fun SearchScreen(
 private fun BrowseCard(
     title: String,
     gradient: List<Color>,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -312,9 +321,13 @@ private fun BrowseCard(
             .background(Brush.linearGradient(gradient))
             .clickable(onClick = onClick)
             .padding(14.dp),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.BottomStart
     ) {
-        Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Column {
+            Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
