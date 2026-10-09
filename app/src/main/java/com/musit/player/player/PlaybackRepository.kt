@@ -22,6 +22,7 @@ interface PlaybackRepository {
     val queueState: StateFlow<QueueState>
     val shuffleEnabled: StateFlow<Boolean>
     val repeatMode: StateFlow<RepeatMode>
+    val playbackSpeed: StateFlow<Float>
 
     /** Plays a single song (replaces the queue). */
     fun playSong(song: Song)
@@ -39,6 +40,7 @@ interface PlaybackRepository {
     fun seekTo(positionMs: Long)
     fun setShuffle(enabled: Boolean)
     fun cycleRepeatMode()
+    fun setPlaybackSpeed(speed: Float)
 
     fun removeFromQueue(index: Int)
     fun moveInQueue(fromIndex: Int, toIndex: Int)
