@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.musit.player.data.repository.LibraryRepository
 import com.musit.player.data.repository.LyricsRepository
+import com.musit.player.data.repository.LyricsResult
 import com.musit.player.model.Song
 import com.musit.player.player.PlaybackRepository
 import com.musit.player.player.SleepTimer
@@ -25,8 +26,8 @@ class PlayerViewModel @Inject constructor(
     private val lyricsRepo: LyricsRepository
 ) : ViewModel() {
 
-    private val _lyrics = MutableStateFlow<String?>(null)
-    val lyrics: StateFlow<String?> = _lyrics.asStateFlow()
+    private val _lyrics = MutableStateFlow<LyricsResult>(LyricsResult.NotFound)
+    val lyrics: StateFlow<LyricsResult> = _lyrics.asStateFlow()
 
     private val _lyricsLoading = MutableStateFlow(false)
     val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
