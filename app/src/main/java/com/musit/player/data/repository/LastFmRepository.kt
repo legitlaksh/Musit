@@ -34,8 +34,8 @@ class LastFmRepository @Inject constructor() {
             try {
                 if (API_KEY == "YOUR_LASTFM_API_KEY") return@withContext emptyList()
 
-                val a = URLEncoder.encode(artist, "UTF-8")
-                val t = URLEncoder.encode(track, "UTF-8")
+                val a = URLEncoder.encode(artist, "UTF-8") ?: return@withContext emptyList()
+                val t = URLEncoder.encode(track, "UTF-8") ?: return@withContext emptyList()
                 val url = URL("$BASE_URL?method=track.getsimilar&artist=$a&track=$t&api_key=$API_KEY&format=json&limit=$limit")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 10000
@@ -90,7 +90,7 @@ class LastFmRepository @Inject constructor() {
             try {
                 if (API_KEY == "YOUR_LASTFM_API_KEY") return@withContext emptyList()
 
-                val encodedTag = URLEncoder.encode(tag, "UTF-8")
+                val encodedTag = URLEncoder.encode(tag, "UTF-8") ?: return@withContext emptyList()
                 val url = URL("$BASE_URL?method=tag.gettoptracks&tag=$encodedTag&api_key=$API_KEY&format=json&limit=$limit")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 10000
