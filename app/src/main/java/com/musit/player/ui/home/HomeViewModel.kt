@@ -40,9 +40,52 @@ class HomeViewModel @Inject constructor(
     private val _recommended = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val recommended: StateFlow<UiState<List<Song>>> = _recommended.asStateFlow()
 
+    private val _smartPlaylist = MutableStateFlow<UiState<Pair<String, List<Song>>>>(UiState.Loading)
+    val smartPlaylist: StateFlow<UiState<Pair<String, List<Song>>>> = _smartPlaylist.asStateFlow()
+
     init {
         refreshTrending()
         loadRecommendations()
+        loadSmartPlaylist()
+    }
+
+    /**
+     * Generate a time-based smart playlist.
+     * Morning: energetic, Afternoon: vibes, Evening: chill, Night: late night.
+     */
+    fun loadSmartPlaylist() {
+        viewModelScope.launch {
+            _smartPlaylist.value = UiState.Loading
+            try {
+                val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                val (title, tag) = when (hour) {
+                    in 5..10 -> "Morning Energy" to "energetic"
+                    in 11..16 -> "Afternoon Vibes" to "chill"
+                    in 17..21 -> "Evening Chill" to "relaxing"
+                    else -> "Late Night" to "ambient"
+                }
+                val tracks = lastFm.getTopTracksByTag(tag, 10)
+                // Resolve to playable
+                val resolved = mutableListOf<Song>()
+                for (rec in tracks.take(6)) {
+                    try {
+                        val result = music.search("${rec.title} ${rec.artist}")
+                        result.onSuccess { songs ->
+                            songs.firstOrNull()?.let { resolved.add(it) }
+                        }
+                        kotlinx.coroutines.delay(300)
+                    } catch (e: Exception) { }
+                    if (resolved.size >= 5) break
+                }
+                _smartPlaylist.value = if (resolved.isEmpty()) {
+                    UiState.Error("Couldn't load smart playlist.")
+                } else {
+                    UiState.Success(title to resolved)
+                }
+            } catch (e: Exception) {
+                _smartPlaylist.value = UiState.Error("Couldn't load smart playlist.")
+            }
+        }
     }
 
     /**
