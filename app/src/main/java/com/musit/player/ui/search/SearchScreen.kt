@@ -38,7 +38,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -95,11 +97,11 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0A))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Text(
             text = "Search",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 12.dp)
@@ -112,12 +114,12 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
-            placeholder = { Text("Search songs, artists, albums...", color = Color.White.copy(alpha = 0.4f)) },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.6f)) },
+            placeholder = { Text("Search songs, artists, albums...", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)) },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { viewModel.clearQuery() }) {
-                        Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = Color.White.copy(alpha = 0.6f))
+                        Icon(Icons.Filled.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
                     }
                 }
             },
@@ -162,9 +164,9 @@ fun SearchScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(Icons.Filled.TrendingUp, null,
-                                tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(suggestion, color = Color.White, maxLines = 1,
+                            Text(suggestion, color = MaterialTheme.colorScheme.onBackground, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis, fontSize = 15.sp)
                         }
                     }
@@ -208,7 +210,7 @@ fun SearchScreen(
 
                         // Browse All
                         item {
-                            Text("Browse All", color = Color.White, fontSize = 18.sp,
+                            Text("Browse All", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
                             Spacer(modifier = Modifier.height(8.dp))
                         }
@@ -235,7 +237,7 @@ fun SearchScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Recent searches", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Recent searches", color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                                     TextButton(onClick = { viewModel.clearHistory() }) {
                                         Text("Clear", color = Color(0xFF9D4EDD))
                                     }
@@ -249,9 +251,9 @@ fun SearchScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(Icons.Filled.History, null,
-                                        tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(12.dp))
-                                    Text(past, color = Color.White, fontSize = 15.sp, maxLines = 1,
+                                    Text(past, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, maxLines = 1,
                                         overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 }
                             }
@@ -268,9 +270,9 @@ fun SearchScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Filled.History, null,
-                                    tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(past, color = Color.White, fontSize = 15.sp, maxLines = 1,
+                                Text(past, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             }
                         }
@@ -324,9 +326,9 @@ private fun BrowseCard(
         contentAlignment = Alignment.BottomStart
     ) {
         Column {
-            Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(28.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.9f), modifier = Modifier.size(28.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -343,10 +345,10 @@ private fun GenreRow(name: String, color: Color, onClick: () -> Unit) {
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(color),
             contentAlignment = Alignment.Center
         ) {
-            Text(name.first().toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(name.first().toString(), color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Text(name, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
-        Icon(Icons.Filled.ChevronRight, null, tint = Color.White.copy(alpha = 0.4f))
+        Text(name, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f))
     }
 }
