@@ -77,6 +77,9 @@ class Media3PlaybackRepository @Inject constructor(
     private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
     override val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
 
+    private val _playbackSpeed = MutableStateFlow(1f)
+    override val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
     // ------------------------------------------------------------------
     // queue model
     // ------------------------------------------------------------------
@@ -210,6 +213,11 @@ class Media3PlaybackRepository @Inject constructor(
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.OFF
         }
+    }
+
+    override fun setPlaybackSpeed(speed: Float) {
+        player?.setPlaybackSpeed(speed)
+        _playbackSpeed.value = speed
     }
 
     override fun removeFromQueue(index: Int) {
