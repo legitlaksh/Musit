@@ -70,6 +70,7 @@ fun HomeScreen(
 ) {
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val trending by viewModel.trending.collectAsStateWithLifecycle()
+    val recommended by viewModel.recommended.collectAsStateWithLifecycle()
     val smartMix by viewModel.smartMix.collectAsStateWithLifecycle()
     var selectedChip by remember { mutableStateOf("All") }
 
@@ -280,6 +281,49 @@ fun HomeScreen(
                 items(t.data.take(5)) { song ->
                     val idx = t.data.indexOf(song)
                     MockupSongRow(song = song, onClick = { onSongClick(t.data, idx) })
+                }
+            }
+            null -> {}
+        }
+
+        // Recommended for you (Last.fm)
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Recommended for you", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                IconButton(onClick = { viewModel.loadRecommendations() }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                }
+            }
+            Text(
+                "Based on your taste",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        when (val r = recommended) {
+            is UiState.Loading -> item { LoadingView() }
+            is UiState.Error -> item {
+                Text(
+                    r.message,
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                )
+            }
+            is UiState.Success -> {
+                items(r.data.take(5)) { song ->
+                    val idx = r.data.indexOf(song)
+                    MockupSongRow(song = song, onClick = { onSongClick(r.data, idx) })
                 }
             }
             null -> {}
