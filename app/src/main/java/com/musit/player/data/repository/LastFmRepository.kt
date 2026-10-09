@@ -20,8 +20,8 @@ import javax.inject.Singleton
 class LastFmRepository @Inject constructor() {
 
     companion object {
-        // TODO: Get free API key from https://www.last.fm/api/account/create
-        const val API_KEY = "YOUR_LASTFM_API_KEY"
+        // Last.fm API key for Musit (registered to Legitlaksh)
+        const val API_KEY = "98ea297ce855fd291364fecb3e0f3a99"
         const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"
     }
 
@@ -32,7 +32,6 @@ class LastFmRepository @Inject constructor() {
     suspend fun getSimilarTracks(artist: String, track: String, limit: Int = 20): List<Song> =
         withContext(Dispatchers.IO) {
             try {
-                if (API_KEY == "YOUR_LASTFM_API_KEY") return@withContext emptyList()
 
                 val a = URLEncoder.encode(artist, "UTF-8") ?: return@withContext emptyList()
                 val t = URLEncoder.encode(track, "UTF-8") ?: return@withContext emptyList()
@@ -88,7 +87,6 @@ class LastFmRepository @Inject constructor() {
     suspend fun getTopTracksByTag(tag: String, limit: Int = 20): List<Song> =
         withContext(Dispatchers.IO) {
             try {
-                if (API_KEY == "YOUR_LASTFM_API_KEY") return@withContext emptyList()
 
                 val encodedTag = URLEncoder.encode(tag, "UTF-8") ?: return@withContext emptyList()
                 val url = URL("$BASE_URL?method=tag.gettoptracks&tag=$encodedTag&api_key=$API_KEY&format=json&limit=$limit")
