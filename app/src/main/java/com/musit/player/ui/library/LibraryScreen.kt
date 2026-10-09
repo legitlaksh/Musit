@@ -30,7 +30,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,7 +87,7 @@ fun LibraryScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A)),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 120.dp)
     ) {
         // Header
@@ -94,13 +96,13 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Your Library", color = Color.White, fontSize = 24.sp,
+                Text("Your Library", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp,
                     fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 IconButton(onClick = onSearchClick) {
-                    Icon(Icons.Filled.Search, null, tint = Color.White.copy(alpha = 0.8f))
+                    Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
                 }
                 IconButton(onClick = { showCreateDialog = true }) {
-                    Icon(Icons.Filled.Add, null, tint = Color.White.copy(alpha = 0.8f))
+                    Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f))
                 }
             }
         }
@@ -119,7 +121,7 @@ fun LibraryScreen(
                             .clickable { selectedTab = tab }
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text(tab, color = Color.White, fontSize = 13.sp,
+                        Text(tab, color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
@@ -132,7 +134,7 @@ fun LibraryScreen(
                 // Liked Songs
                 item {
                     LibraryRow(
-                        icon = { Icon(Icons.Filled.Favorite, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
+                        icon = { Icon(Icons.Filled.Favorite, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
                         iconBg = Color(0xFF9D4EDD),
                         title = "Liked Songs",
                         subtitle = "${favorites.size} songs",
@@ -143,7 +145,7 @@ fun LibraryScreen(
                 if (localSongs.isNotEmpty()) {
                     item {
                         LibraryRow(
-                            icon = { Icon(Icons.Filled.Download, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
+                            icon = { Icon(Icons.Filled.Download, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
                             iconBg = Color(0xFF4CAF50),
                             title = "Downloaded",
                             subtitle = "${localSongs.size} songs",
@@ -154,7 +156,7 @@ fun LibraryScreen(
                 // User playlists
                 items(playlists, key = { it.id }) { playlist ->
                     LibraryRow(
-                        icon = { Icon(Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
+                        icon = { Icon(Icons.Filled.MusicNote, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
                         iconBg = Color(0xFF6A1B9A),
                         title = playlist.name,
                         subtitle = "by you",
@@ -169,13 +171,13 @@ fun LibraryScreen(
             }
             "Artists" -> {
                 item {
-                    Text("Artists coming soon", color = Color.White.copy(alpha = 0.5f),
+                    Text("Artists coming soon", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                         modifier = Modifier.padding(20.dp))
                 }
             }
             "Albums" -> {
                 item {
-                    Text("Albums coming soon", color = Color.White.copy(alpha = 0.5f),
+                    Text("Albums coming soon", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                         modifier = Modifier.padding(20.dp))
                 }
             }
@@ -194,9 +196,9 @@ fun LibraryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(song.title, color = Color.White, fontSize = 15.sp,
+                                Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(song.artist, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp,
+                                Text(song.artist, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
@@ -260,11 +262,11 @@ private fun LibraryRow(
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium,
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp,
+            Text(subtitle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Icon(Icons.Filled.MoreVert, null, tint = Color.White.copy(alpha = 0.4f))
+        Icon(Icons.Filled.MoreVert, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f))
     }
 }
