@@ -60,38 +60,64 @@ class HomeViewModel @Inject constructor(
 
                 val allSongs = mutableListOf<com.musit.player.model.Song>()
 
-                // 1. From favorite songs (most personal)
+                // 1. From recent plays (most relevant to current taste)
+                val recentSongs = recents.value.take(3)
+                for (recent in recentSongs) {
+                    if (allSongs.size >= 10) break
+                    try {
+                        val similar = lastFm.getSimilarTracks(recent.artist, recent.title, 5)
+                        allSongs.addAll(similar)
+                    } catch (e: Exception) { }
+                }
+
+                // 2. From favorite songs
                 val favs = favorites.value
-                if (favs.isNotEmpty()) {
+                if (favs.isNotEmpty() && allSongs.size < 15) {
                     val seed = favs.random()
                     allSongs.addAll(lastFm.getSimilarTracks(seed.artist, seed.title, 10))
                 }
 
-                // 2. From onboarding artists
+                // 3. From onboarding artists
                 if (artists.isNotEmpty() && allSongs.size < 15) {
                     val artist = artists.random()
-                    // Get similar artists' top tracks via tag
                     allSongs.addAll(lastFm.getTopTracksByTag(artist, 10))
                 }
 
-                // 3. From onboarding genres
+                // 4. From onboarding genres
                 if (genres.isNotEmpty() && allSongs.size < 15) {
                     val genre = genres.random()
                     allSongs.addAll(lastFm.getTopTracksByTag(genre, 10))
                 }
 
-                // 4. From mood
+                // 5. From mood
                 if (mood.isNotBlank() && allSongs.size < 15) {
                     allSongs.addAll(lastFm.getTopTracksByTag(mood, 10))
                 }
 
                 // Deduplicate
-                val unique = allSongs.distinctBy { "${it.artist}:${it.title}" }.take(20)
+                val unique = allSongs.distinctBy { "${it.artist}:${it.title}" }.take(10)
 
-                _recommended.value = if (unique.isEmpty()) {
+                // Resolve to playable songs with artwork via search
+                val resolved = mutableListOf<com.musit.player.model.Song>()
+                for (rec in unique.take(8)) {
+                    try {
+                        val query = "${rec.title} ${rec.artist}"
+                        val result = music.search(query)
+                        result.onSuccess { songs ->
+                            songs.firstOrNull()?.let { resolved.add(it) }
+                        }
+                        // Small delay to avoid rate limiting
+                        kotlinx.coroutines.delay(300)
+                    } catch (e: Exception) {
+                        // Skip this one
+                    }
+                    if (resolved.size >= 5) break
+                }
+
+                _recommended.value = if (resolved.isEmpty()) {
                     UiState.Error("No recommendations yet. Like some songs!")
                 } else {
-                    UiState.Success(unique.shuffled())
+                    UiState.Success(resolved)
                 }
             } catch (e: Exception) {
                 _recommended.value = UiState.Error("Couldn't load recommendations.")
