@@ -279,35 +279,31 @@ fun PlayerScreen(
         // Secondary icons row
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.Top
             ) {
-                IconButton(onClick = onOpenQueue) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.QueueMusic, "Queue", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
-                        Text("Queue", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
-                    }
-                }
-                IconButton(onClick = { showSleepDialog = true }) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.Timer, "Sleep timer",
-                            tint = if (sleepActive) Color(0xFF9D4EDD) else Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.size(24.dp))
-                        Text("Sleep", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
-                    }
-                }
-                IconButton(onClick = { showLyricsDialog = true }) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.AutoMirrored.Filled.Notes, "Lyrics", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
-                        Text("Lyrics", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
-                    }
-                }
-                IconButton(onClick = { shareSong() }) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.Share, "Share", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
-                        Text("Share", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
-                    }
-                }
+                IconLabelButton(
+                    icon = Icons.Filled.QueueMusic,
+                    label = "Queue",
+                    onClick = onOpenQueue
+                )
+                IconLabelButton(
+                    icon = Icons.Filled.Timer,
+                    label = "Sleep",
+                    tint = if (sleepActive) Color(0xFF9D4EDD) else Color.White.copy(alpha = 0.6f),
+                    onClick = { showSleepDialog = true }
+                )
+                IconLabelButton(
+                    icon = Icons.AutoMirrored.Filled.Notes,
+                    label = "Lyrics",
+                    onClick = { showLyricsDialog = true }
+                )
+                IconLabelButton(
+                    icon = Icons.Filled.Share,
+                    label = "Share",
+                    onClick = { shareSong() }
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -395,5 +391,24 @@ fun PlayerScreen(
             confirmButton = {},
             dismissButton = { TextButton(onClick = { showLyricsDialog = false }) { Text("Close") } }
         )
+    }
+}
+
+@Composable
+private fun IconLabelButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    tint: Color = Color.White.copy(alpha = 0.6f)
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Icon(icon, label, tint = tint, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(label, color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, maxLines = 1)
     }
 }
