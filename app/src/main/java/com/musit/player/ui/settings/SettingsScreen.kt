@@ -49,8 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.musit.player.data.ThemeMode
-import com.musit.player.data.AudioQuality
+import com.musit.player.ui.theme.ThemeMode
+import com.musit.player.data.store.AudioQuality
 import kotlinx.coroutines.launch
 
 /**
