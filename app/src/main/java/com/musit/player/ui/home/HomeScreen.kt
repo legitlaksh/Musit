@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -98,7 +99,7 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0A)),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 120.dp)
     ) {
         // Header: musit (Settings is in bottom nav, no duplicate here)
@@ -111,7 +112,7 @@ fun HomeScreen(
             ) {
                 Text(
                     text = "musit",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
@@ -139,7 +140,7 @@ fun HomeScreen(
                     ) {
                         Text(
                             text = chip,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 13.sp,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                         )
@@ -153,7 +154,7 @@ fun HomeScreen(
         item {
             Text(
                 text = greeting,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp)
@@ -170,7 +171,7 @@ fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     QuickAccessCard(
                         title = "Liked Songs",
-                        icon = { Icon(Icons.Filled.Favorite, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
+                        icon = { Icon(Icons.Filled.Favorite, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
                         bgColor = Color(0xFF1A1A2E),
                         modifier = Modifier.weight(1f),
                         onClick = onLikedClick
@@ -193,7 +194,7 @@ fun HomeScreen(
                     )
                     QuickAccessCard(
                         title = "Your Mix",
-                        icon = { Icon(Icons.Filled.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
+                        icon = { Icon(Icons.Filled.AutoAwesome, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
                         bgColor = Color(0xFF6A1B9A),
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.generateSmartMix() }
@@ -207,7 +208,7 @@ fun HomeScreen(
         item {
             Text(
                 text = "Made for You",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp)
@@ -246,8 +247,8 @@ fun HomeScreen(
                                 modifier = Modifier.size(56.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        Text(subtitle, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(subtitle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp)
                     }
                 }
             }
@@ -264,9 +265,9 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Recommended for you", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Recommended for you", color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 IconButton(onClick = { viewModel.loadRecommendations() }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                 }
             }
             Text(
@@ -310,9 +311,9 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         IconButton(onClick = { viewModel.loadSmartPlaylist() }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Filled.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                         }
                     }
                     Text(
@@ -367,7 +368,7 @@ private fun QuickAccessCard(
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
-        Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
@@ -389,9 +390,9 @@ private fun MockupSongRow(song: Song, onClick: () -> Unit) {
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(song.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(song.artist, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp,
+            Text(song.artist, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = onClick) {
