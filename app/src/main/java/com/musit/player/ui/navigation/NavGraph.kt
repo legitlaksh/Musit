@@ -153,9 +153,6 @@ fun MusitNavGraph(
                     },
                     onDownloadsClick = {
                         navController.navigate(Routes.LIBRARY)
-                    },
-                    onSettingsClick = {
-                        navController.navigate(Routes.SETTINGS)
                     }
                 )
             }
@@ -185,7 +182,12 @@ fun MusitNavGraph(
                 )
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(snackbarHostState = snackbarHostState)
+                SettingsScreen(
+                    snackbarHostState = snackbarHostState,
+                    onBack = { navController.popBackStack() },
+                    onEqualizerClick = { navController.navigate(Routes.EQUALIZER) },
+                    onSleepTimerClick = { navController.navigate(Routes.PLAYER) }
+                )
             }
             composable(Routes.PLAYER) {
                 PlayerScreen(
