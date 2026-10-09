@@ -139,6 +139,15 @@ class PlayerService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         player = exoPlayer
+        // Update custom layout buttons when track changes
+        exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int
+            ) {
+                updateCustomLayout()
+            }
+        })
         session = MediaSession.Builder(this, exoPlayer)
             .setCallback(sessionCallback)
             .build()
