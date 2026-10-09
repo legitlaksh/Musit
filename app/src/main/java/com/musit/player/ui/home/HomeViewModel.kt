@@ -45,7 +45,7 @@ class HomeViewModel @Inject constructor(
             _trending.value = music.trending().fold(
                 onSuccess = { songs ->
                     if (songs.isEmpty()) UiState.Error("Nothing trending right now.")
-                    else UiState.Success(songs)
+                    else UiState.Success(songs.shuffled())
                 },
                 onFailure = { e ->
                     UiState.Error(e.message ?: "Couldn't load trending music.")
