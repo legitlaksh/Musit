@@ -15,6 +15,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.musit.player.ui.MainActivity
 import com.musit.player.R
 import com.musit.player.data.repository.LibraryRepository
+import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +34,13 @@ class PlayerService : MediaSessionService() {
     @Inject
     lateinit var libraryRepository: LibraryRepository
 
+    /**
+     * Lazy so the playback repository (and its MediaController, which binds to
+     * this service's own session) is only created after the session exists.
+     */
+    @Inject
+    lateinit var playbackRepository: Lazy<PlaybackRepository>
+
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -40,8 +48,18 @@ class PlayerService : MediaSessionService() {
     companion object {
         const val COMMAND_TOGGLE_LIKE = "com.musit.player.TOGGLE_LIKE"
         const val COMMAND_ADD_TO_PLAYLIST = "com.musit.player.ADD_TO_PLAYLIST"
+        const val COMMAND_NEXT_TRACK = "com.musit.player.NEXT_TRACK"
         const val ACTION_ADD_TO_PLAYLIST = "com.musit.player.action.ADD_TO_PLAYLIST"
         const val EXTRA_SONG_ID = "song_id"
+
+        // Home screen widget protocol (see MusitWidgetProvider).
+        const val ACTION_WIDGET_TOGGLE = "com.musit.player.widget.TOGGLE"
+        const val ACTION_WIDGET_NEXT = "com.musit.player.widget.NEXT"
+        const val ACTION_WIDGET_UPDATE = "com.musit.player.widget.UPDATE"
+        const val EXTRA_WIDGET_TITLE = "widget_title"
+        const val EXTRA_WIDGET_ARTIST = "widget_artist"
+        const val EXTRA_WIDGET_ARTWORK = "widget_artwork"
+        const val EXTRA_WIDGET_PLAYING = "widget_playing"
     }
 
     private val sessionCallback = object : MediaSession.Callback {
@@ -52,6 +70,7 @@ class PlayerService : MediaSessionService() {
             val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                 .add(SessionCommand(COMMAND_TOGGLE_LIKE, Bundle.EMPTY))
                 .add(SessionCommand(COMMAND_ADD_TO_PLAYLIST, Bundle.EMPTY))
+                .add(SessionCommand(COMMAND_NEXT_TRACK, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.accept(
                 sessionCommands,
@@ -106,13 +125,44 @@ class PlayerService : MediaSessionService() {
                     }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
+                COMMAND_NEXT_TRACK -> {
+                    // Widget "next": advance the app's internal queue via the
+                    // playback repository (ExoPlayer only holds one item).
+                    serviceScope.launch {
+                        try {
+                            playbackRepository.get().next()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
             }
             return super.onCustomCommand(session, controller, customCommand, args)
         }
     }
 
-    private fun updateCustomLayout() {
-        val session = this.session ?: return
+    /**
+     * Pushes the current playback state to the home screen widget, if any.
+     * Explicit in-app broadcast; the widget provider renders it.
+     */
+    private fun broadcastWidgetUpdate() {
+        try {
+            val metadata = player?.currentMediaItem?.mediaMetadata
+            val intent = Intent(ACTION_WIDGET_UPDATE).apply {
+                setPackage(packageName)
+                putExtra(EXTRA_WIDGET_TITLE, metadata?.title?.toString())
+                putExtra(EXTRA_WIDGET_ARTIST, metadata?.artist?.toString())
+                putExtra(EXTRA_WIDGET_ARTWORK, metadata?.artworkUri?.toString())
+                putExtra(EXTRA_WIDGET_PLAYING, player?.isPlaying == true)
+            }
+            sendBroadcast(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun updateCustomLayout() {        val session = this.session ?: return
         try {
             // Like button
             val likeButton = CommandButton.Builder()
@@ -154,6 +204,11 @@ class PlayerService : MediaSessionService() {
                 reason: Int
             ) {
                 updateCustomLayout()
+                broadcastWidgetUpdate()
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                broadcastWidgetUpdate()
             }
         })
         session = MediaSession.Builder(this, exoPlayer)
