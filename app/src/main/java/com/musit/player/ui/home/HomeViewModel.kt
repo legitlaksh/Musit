@@ -19,7 +19,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val music: MusicRepository,
     private val library: LibraryRepository,
-    private val lastFm: com.musit.player.data.repository.LastFmRepository
+    private val lastFm: com.musit.player.data.repository.LastFmRepository,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
     val recents: StateFlow<List<Song>> =
@@ -45,30 +46,52 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Load Last.fm recommendations based on user's favorites.
-     * If no favorites, uses trending songs as seed.
+     * Load Last.fm recommendations based on user's onboarding preferences
+     * (genres, artists, mood) and favorites.
      */
     fun loadRecommendations() {
         viewModelScope.launch {
             _recommended.value = UiState.Loading
             try {
+                val prefs = context.getSharedPreferences("musit_prefs", android.content.Context.MODE_PRIVATE)
+                val genres = prefs.getStringSet("user_genres", emptySet()) ?: emptySet()
+                val artists = prefs.getStringSet("user_artists", emptySet()) ?: emptySet()
+                val mood = prefs.getString("user_mood", "") ?: ""
+
+                val allSongs = mutableListOf<com.musit.player.model.Song>()
+
+                // 1. From favorite songs (most personal)
                 val favs = favorites.value
-                val seed = if (favs.isNotEmpty()) {
-                    favs.random()
-                } else {
-                    val trendingSongs = (_trending.value as? UiState.Success)?.data
-                    trendingSongs?.randomOrNull()
+                if (favs.isNotEmpty()) {
+                    val seed = favs.random()
+                    allSongs.addAll(lastFm.getSimilarTracks(seed.artist, seed.title, 10))
                 }
 
-                if (seed != null) {
-                    val similar = lastFm.getSimilarTracks(seed.artist, seed.title, 20)
-                    _recommended.value = if (similar.isEmpty()) {
-                        UiState.Error("No recommendations yet. Like some songs!")
-                    } else {
-                        UiState.Success(similar)
-                    }
+                // 2. From onboarding artists
+                if (artists.isNotEmpty() && allSongs.size < 15) {
+                    val artist = artists.random()
+                    // Get similar artists' top tracks via tag
+                    allSongs.addAll(lastFm.getTopTracksByTag(artist, 10))
+                }
+
+                // 3. From onboarding genres
+                if (genres.isNotEmpty() && allSongs.size < 15) {
+                    val genre = genres.random()
+                    allSongs.addAll(lastFm.getTopTracksByTag(genre, 10))
+                }
+
+                // 4. From mood
+                if (mood.isNotBlank() && allSongs.size < 15) {
+                    allSongs.addAll(lastFm.getTopTracksByTag(mood, 10))
+                }
+
+                // Deduplicate
+                val unique = allSongs.distinctBy { "${it.artist}:${it.title}" }.take(20)
+
+                _recommended.value = if (unique.isEmpty()) {
+                    UiState.Error("No recommendations yet. Like some songs!")
                 } else {
-                    _recommended.value = UiState.Error("Play some music first!")
+                    UiState.Success(unique.shuffled())
                 }
             } catch (e: Exception) {
                 _recommended.value = UiState.Error("Couldn't load recommendations.")
