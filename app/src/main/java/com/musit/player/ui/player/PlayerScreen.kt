@@ -101,6 +101,8 @@ fun PlayerScreen(
     val isFav = current?.let { favoriteIds.contains(it.id) } ?: false
 
     var showSleepDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
+    val playbackSpeed by playback.playbackSpeed.collectAsStateWithLifecycle()
     var showLyricsDialog by remember { mutableStateOf(false) }
     var lyricsExpanded by remember { mutableStateOf(false) }
     val sleepActive by viewModel.sleepTimer.isActive.collectAsStateWithLifecycle()
@@ -111,7 +113,8 @@ fun PlayerScreen(
 
     fun shareSong() {
         current?.let { song ->
-            val shareText = "🎵 ${song.title} by ${song.artist}\nListening on musit"
+            val youtubeLink = "https://music.youtube.com/watch?v=${song.id}"
+            val shareText = "🎵 ${song.title} by ${song.artist}\n$youtubeLink\nListening on musit"
             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(android.content.Intent.EXTRA_TEXT, shareText)
@@ -321,6 +324,11 @@ fun PlayerScreen(
                     label = "Share",
                     onClick = { shareSong() }
                 )
+                IconLabelButton(
+                    icon = Icons.Filled.Speed,
+                    label = "Speed",
+                    onClick = { showSpeedDialog = true }
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -434,6 +442,30 @@ fun PlayerScreen(
             },
             confirmButton = {},
             dismissButton = { TextButton(onClick = { showSleepDialog = false }) { Text("Close") } }
+        )
+    }
+
+    if (showSpeedDialog) {
+        AlertDialog(
+            onDismissRequest = { showSpeedDialog = false },
+            title = { Text("Playback speed") },
+            text = {
+                Column {
+                    listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).forEach { speed ->
+                        TextButton(
+                            onClick = { playback.setPlaybackSpeed(speed); showSpeedDialog = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "${speed}x",
+                                color = if (playbackSpeed == speed) Color(0xFF9D4EDD) else Color.White
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showSpeedDialog = false }) { Text("Close") } }
         )
     }
 
