@@ -71,6 +71,7 @@ fun HomeScreen(
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val trending by viewModel.trending.collectAsStateWithLifecycle()
     val recommended by viewModel.recommended.collectAsStateWithLifecycle()
+    val smartPlaylist by viewModel.smartPlaylist.collectAsStateWithLifecycle()
     val smartMix by viewModel.smartMix.collectAsStateWithLifecycle()
     var selectedChip by remember { mutableStateOf("All") }
 
@@ -293,6 +294,42 @@ fun HomeScreen(
                     MockupSongRow(song = song, onClick = { onSongClick(r.data, idx) })
                 }
             }
+            null -> {}
+        }
+
+        // Smart playlist (time-based)
+        when (val sp = smartPlaylist) {
+            is UiState.Success -> {
+                val (title, songs) = sp.data
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { viewModel.loadSmartPlaylist() }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Text(
+                        "Made for this time of day",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                items(songs.take(5)) { song ->
+                    val idx = songs.indexOf(song)
+                    MockupSongRow(song = song, onClick = { onSongClick(songs, idx) })
+                }
+            }
+            is UiState.Loading -> item { LoadingView() }
+            is UiState.Error -> item { }
             null -> {}
         }
     }
