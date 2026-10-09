@@ -59,11 +59,15 @@ class SearchViewModel @Inject constructor(
     private fun collectDebouncedQueries() {
         viewModelScope.launch {
             _query
-                .debounce(350)
+                .debounce(500)
                 .distinctUntilChanged()
                 .filter { it.isNotBlank() && it != _lastSearched.value }
                 .collect { q ->
                     _suggestions.value = music.suggestions(q)
+                    // Auto-search when 3+ letters typed
+                    if (q.length >= 3) {
+                        search(q)
+                    }
                 }
         }
     }
@@ -87,6 +91,7 @@ class SearchViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
+            library.recordQuery(trimmed)
             _query.value = trimmed
             _suggestions.value = emptyList()
             _results.value = UiState.Loading
