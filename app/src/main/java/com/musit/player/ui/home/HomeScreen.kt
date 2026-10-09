@@ -22,9 +22,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -59,7 +62,6 @@ import java.util.Calendar
 fun HomeScreen(
     onSongClick: (List<Song>, Int) -> Unit,
     onSearchClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
     onLikedClick: () -> Unit = {},
     onMoodClick: (String) -> Unit = {},
     onDownloadsClick: () -> Unit = {},
@@ -96,7 +98,7 @@ fun HomeScreen(
             .background(Color(0xFF0A0A0A)),
         contentPadding = PaddingValues(bottom = 120.dp)
     ) {
-        // Header: musit + settings
+        // Header: musit (Settings is in bottom nav, no duplicate here)
         item {
             Row(
                 modifier = Modifier
@@ -111,9 +113,7 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = onSettingsClick) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color.White.copy(alpha = 0.8f))
-                }
+            }
             }
         }
 
@@ -191,6 +191,7 @@ fun HomeScreen(
                     )
                     QuickAccessCard(
                         title = "Your Mix",
+                        icon = { Icon(Icons.Filled.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
                         bgColor = Color(0xFF6A1B9A),
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.generateSmartMix() }
@@ -217,10 +218,10 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 val mixes = listOf(
-                    "Chill Mix" to "Relax and unwind",
-                    "Workout Mix" to "High energy"
+                    Triple("Chill Mix", "Relax and unwind", Icons.Filled.Spa),
+                    Triple("Workout Mix", "High energy", Icons.Filled.FitnessCenter)
                 )
-                items(mixes) { (title, subtitle) ->
+                items(mixes) { (title, subtitle, icon) ->
                     Column(
                         modifier = Modifier.width(160.dp)
                             .clickable { onMoodClick(title) }
@@ -231,12 +232,16 @@ fun HomeScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     Brush.linearGradient(
-                                        colors = listOf(Color(0xFF6A1B9A), Color(0xFF9D4EDD))
+                                        colors = if (title == "Chill Mix")
+                                            listOf(Color(0xFF1A237E), Color(0xFF5C6BC0))
+                                        else
+                                            listOf(Color(0xFF6A1B9A), Color(0xFF9D4EDD))
                                     )
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(title.first().toString(), color = Color.White.copy(alpha = 0.3f), fontSize = 64.sp, fontWeight = FontWeight.Bold)
+                            Icon(icon, null, tint = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.size(56.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
