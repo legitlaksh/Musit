@@ -138,8 +138,13 @@ class PlayerService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        val audioAttributes = androidx.media3.common.AudioAttributes.Builder()
+            .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+            .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+            .build()
         val exoPlayer = ExoPlayer.Builder(this)
             .setHandleAudioBecomingNoisy(true)
+            .setAudioAttributes(audioAttributes, true)
             .build()
         player = exoPlayer
         // Update custom layout buttons when track changes
