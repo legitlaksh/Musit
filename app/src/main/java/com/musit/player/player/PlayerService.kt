@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.musit.player.ui.MainActivity
+import com.musit.player.R
 import com.musit.player.data.repository.LibraryRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -113,6 +114,7 @@ class PlayerService : MediaSessionService() {
             // Like button
             val likeButton = CommandButton.Builder()
                 .setDisplayName("Like")
+                .setIconResId(R.drawable.ic_like)
                 .setSessionCommand(SessionCommand(COMMAND_TOGGLE_LIKE, Bundle.EMPTY))
                 .setEnabled(player?.currentMediaItem != null)
                 .build()
@@ -120,6 +122,7 @@ class PlayerService : MediaSessionService() {
             // Add to Playlist button
             val addToPlaylistButton = CommandButton.Builder()
                 .setDisplayName("Add to Playlist")
+                .setIconResId(R.drawable.ic_playlist_add)
                 .setSessionCommand(SessionCommand(COMMAND_ADD_TO_PLAYLIST, Bundle.EMPTY))
                 .setEnabled(player?.currentMediaItem != null)
                 .build()
