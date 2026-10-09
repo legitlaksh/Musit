@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PrivacyTip
@@ -32,7 +35,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -178,6 +180,25 @@ fun SettingsScreen(
         item { SectionHeader("About") }
         item {
             SettingsItem(
+                icon = Icons.Filled.Person,
+                title = "Developer",
+                subtitle = "laksh",
+                onClick = {}
+            )
+        }
+        item {
+            SettingsItem(
+                icon = Icons.Filled.CameraAlt,
+                title = "Instagram",
+                subtitle = "@legit_laksh",
+                onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://instagram.com/legit_laksh"))
+                    context.startActivity(intent)
+                }
+            )
+        }
+        item {
+            SettingsItem(
                 icon = Icons.Filled.Info,
                 title = "Open-source licenses",
                 subtitle = "View third-party licenses",
@@ -192,6 +213,14 @@ fun SettingsScreen(
                 icon = Icons.Filled.Info,
                 title = "Version",
                 subtitle = viewModel.appVersion(),
+                onClick = {}
+            )
+        }
+        item {
+            SettingsItem(
+                icon = Icons.Filled.Gavel,
+                title = "Legal",
+                subtitle = "musit is a free music player. Music content is provided by third-party services. musit does not host audio files. All trademarks belong to their respective owners.",
                 onClick = {}
             )
         }
