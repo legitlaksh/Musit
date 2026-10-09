@@ -34,5 +34,20 @@
             </intent-filter>
         </service>
 
+        <receiver
+            android:name=".widget.MusitWidgetProvider"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.musit.player.widget.TOGGLE" />
+                <action android:name="com.musit.player.widget.NEXT" />
+                <action android:name="com.musit.player.widget.UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/musit_widget_info" />
+        </receiver>
+
     </application>
 </manifest>
