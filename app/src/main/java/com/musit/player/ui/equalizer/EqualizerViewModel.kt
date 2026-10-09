@@ -8,10 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Provides the audio session ID for the Equalizer.
- * Uses global session (0) which applies to all audio output.
+ * Uses the real ExoPlayer audio session from PlayerService.
  */
 @HiltViewModel
 class EqualizerViewModel @Inject constructor() : ViewModel() {
-    // Global audio session - applies equalizer to all output
-    val audioSessionId: StateFlow<Int> = kotlinx.coroutines.flow.MutableStateFlow(0)
+    // Real audio session from PlayerService's ExoPlayer
+    val audioSessionId: StateFlow<Int> = kotlinx.coroutines.flow.MutableStateFlow(
+        com.musit.player.player.PlayerService.audioSessionId
+    )
 }
