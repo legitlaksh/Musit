@@ -253,39 +253,6 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Trending
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Trending", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { viewModel.refreshTrending() }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
-                    }
-                    Text("See All", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp,
-                        modifier = Modifier.clickable { onMoodClick("trending") })
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        when (val t = trending) {
-            is UiState.Loading -> item { LoadingView() }
-            is UiState.Error -> item { ErrorView(t.message, onRetry = viewModel::refreshTrending) }
-            is UiState.Success -> {
-                items(t.data.take(5)) { song ->
-                    val idx = t.data.indexOf(song)
-                    MockupSongRow(song = song, onClick = { onSongClick(t.data, idx) })
-                }
-            }
-            null -> {}
-        }
-
         // Recommended for you (Last.fm)
         item {
             Spacer(modifier = Modifier.height(8.dp))
