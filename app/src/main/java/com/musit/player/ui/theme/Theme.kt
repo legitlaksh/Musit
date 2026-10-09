@@ -65,6 +65,7 @@ private val MusitLightScheme = lightColorScheme(
 @Composable
 fun MusitTheme(
     themeMode: ThemeMode = ThemeMode.DARK,
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val dark = when (themeMode) {
@@ -72,8 +73,16 @@ fun MusitTheme(
         ThemeMode.DARK -> true
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
+
+    // Dynamic color (Material You) on Android 12+
+    val dynamicScheme = if (dynamicColor && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        if (dark) androidx.compose.material3.dynamicDarkColorScheme(context)
+        else androidx.compose.material3.dynamicLightColorScheme(context)
+    } else null
+
     MaterialTheme(
-        colorScheme = if (dark) MusitDarkScheme else MusitLightScheme,
+        colorScheme = dynamicScheme ?: if (dark) MusitDarkScheme else MusitLightScheme,
         typography = Typography(),
         content = content
     )
