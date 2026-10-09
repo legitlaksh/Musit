@@ -21,8 +21,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
-            // Force dark theme always (user requested)
-            MusitTheme(themeMode = com.musit.player.ui.theme.ThemeMode.DARK) {
+            val themeMode by mainViewModel.themeMode.collectAsStateWithLifecycle()
+            MusitTheme(themeMode = themeMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MusitNavGraph(mainViewModel = mainViewModel)
                 }
