@@ -32,6 +32,18 @@ class PlayerViewModel @Inject constructor(
     private val _lyricsLoading = MutableStateFlow(false)
     val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
 
+    // Lyrics sync offset in milliseconds (user adjustable, +/-)
+    private val _lyricsOffsetMs = MutableStateFlow(0L)
+    val lyricsOffsetMs: StateFlow<Long> = _lyricsOffsetMs.asStateFlow()
+
+    fun adjustLyricsOffset(deltaMs: Long) {
+        _lyricsOffsetMs.value = (_lyricsOffsetMs.value + deltaMs).coerceIn(-10000L, 10000L)
+    }
+
+    fun resetLyricsOffset() {
+        _lyricsOffsetMs.value = 0L
+    }
+
     fun loadLyrics(artist: String, title: String) {
         viewModelScope.launch {
             _lyricsLoading.value = true
