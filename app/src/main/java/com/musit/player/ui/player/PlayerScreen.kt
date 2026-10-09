@@ -223,23 +223,6 @@ fun PlayerScreen(
                                 .background(Color.White)
                         )
                     },
-                    track = { sliderState ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color.White.copy(alpha = 0.25f))
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(sliderState.coercedValueAsFraction)
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Color.White)
-                            )
-                        }
-                    },
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = Color.White,
