@@ -81,6 +81,9 @@ class Media3PlaybackRepository @Inject constructor(
     private val _playbackSpeed = MutableStateFlow(1f)
     override val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
+    private val _audioSessionId = MutableStateFlow(0)
+    override val audioSessionId: StateFlow<Int> = _audioSessionId.asStateFlow()
+
     // ------------------------------------------------------------------
     // queue model
     // ------------------------------------------------------------------
