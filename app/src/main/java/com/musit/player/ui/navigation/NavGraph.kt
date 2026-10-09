@@ -41,6 +41,7 @@ import com.musit.player.ui.settings.SettingsScreen
 
 object Routes {
     const val SPLASH = "splash"
+    const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val SEARCH = "search?query={query}"
     const val LIBRARY = "library"
@@ -71,6 +72,7 @@ fun MusitNavGraph(
 ) {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -139,8 +141,34 @@ fun MusitNavGraph(
             composable(Routes.SPLASH) {
                 com.musit.player.ui.splash.SplashScreen(
                     onDone = {
+                        // Check if onboarding needed
+                        val prefs = context.getSharedPreferences("musit_prefs", android.content.Context.MODE_PRIVATE)
+                        val onboardingDone = prefs.getBoolean("onboarding_done", false)
+                        if (onboardingDone) {
+                            navController.navigate(Routes.HOME) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(Routes.ONBOARDING) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        }
+                    }
+                )
+            }
+            composable(Routes.ONBOARDING) {
+                com.musit.player.ui.onboarding.OnboardingScreen(
+                    onComplete = { genres, artists, mood ->
+                        // Save preferences
+                        val prefs = context.getSharedPreferences("musit_prefs", android.content.Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean("onboarding_done", true)
+                            .putStringSet("user_genres", genres)
+                            .putStringSet("user_artists", artists)
+                            .putString("user_mood", mood)
+                            .apply()
                         navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.SPLASH) { inclusive = true }
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
                         }
                     }
                 )
