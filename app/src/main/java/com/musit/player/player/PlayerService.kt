@@ -148,6 +148,26 @@ class PlayerService : MediaSessionService() {
     }
 
     /**
+     * Simple fade-in effect on track change for smoother transitions.
+     * Fades volume from 0 to 1 over 800ms.
+     */
+    private fun fadeInVolume(player: androidx.media3.exoplayer.ExoPlayer) {
+        try {
+            player.volume = 0f
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            val steps = 8
+            val delayMs = 100L
+            for (i in 1..steps) {
+                handler.postDelayed({
+                    try {
+                        player.volume = (i.toFloat() / steps).coerceIn(0f, 1f)
+                    } catch (e: Exception) { }
+                }, i * delayMs)
+            }
+        } catch (e: Exception) { }
+    }
+
+    /**
      * Pushes the current playback state to the home screen widget, if any.
      * Explicit in-app broadcast; the widget provider renders it.
      */
@@ -212,6 +232,8 @@ class PlayerService : MediaSessionService() {
             ) {
                 updateCustomLayout()
                 broadcastWidgetUpdate()
+                // Fade in volume on track change (simple crossfade effect)
+                fadeInVolume(exoPlayer)
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
