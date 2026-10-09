@@ -23,6 +23,7 @@ interface PlaybackRepository {
     val shuffleEnabled: StateFlow<Boolean>
     val repeatMode: StateFlow<RepeatMode>
     val playbackSpeed: StateFlow<Float>
+    val audioSessionId: StateFlow<Int>
 
     /** Plays a single song (replaces the queue). */
     fun playSong(song: Song)
