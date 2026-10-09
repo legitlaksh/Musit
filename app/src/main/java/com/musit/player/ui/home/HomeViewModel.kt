@@ -18,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val music: MusicRepository,
-    private val library: LibraryRepository
+    private val library: LibraryRepository,
+    private val lastFm: com.musit.player.data.repository.LastFmRepository
 ) : ViewModel() {
 
     val recents: StateFlow<List<Song>> =
@@ -35,8 +36,44 @@ class HomeViewModel @Inject constructor(
     private val _smartMix = MutableStateFlow<UiState<List<Song>>?>(null)
     val smartMix: StateFlow<UiState<List<Song>>?> = _smartMix.asStateFlow()
 
+    private val _recommended = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
+    val recommended: StateFlow<UiState<List<Song>>> = _recommended.asStateFlow()
+
     init {
         refreshTrending()
+        loadRecommendations()
+    }
+
+    /**
+     * Load Last.fm recommendations based on user's favorites.
+     * If no favorites, uses trending songs as seed.
+     */
+    fun loadRecommendations() {
+        viewModelScope.launch {
+            _recommended.value = UiState.Loading
+            try {
+                val favs = favorites.value
+                val seed = if (favs.isNotEmpty()) {
+                    favs.random()
+                } else {
+                    val trendingSongs = (_trending.value as? UiState.Success)?.data
+                    trendingSongs?.randomOrNull()
+                }
+
+                if (seed != null) {
+                    val similar = lastFm.getSimilarTracks(seed.artist, seed.title, 20)
+                    _recommended.value = if (similar.isEmpty()) {
+                        UiState.Error("No recommendations yet. Like some songs!")
+                    } else {
+                        UiState.Success(similar)
+                    }
+                } else {
+                    _recommended.value = UiState.Error("Play some music first!")
+                }
+            } catch (e: Exception) {
+                _recommended.value = UiState.Error("Couldn't load recommendations.")
+            }
+        }
     }
 
     fun refreshTrending() {
