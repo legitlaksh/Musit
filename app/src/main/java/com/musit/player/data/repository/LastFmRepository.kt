@@ -50,7 +50,7 @@ class LastFmRepository @Inject constructor() {
                 for (i in 0 until tracks.length()) {
                     val trackObj = tracks.optJSONObject(i) ?: continue
                     val name = trackObj.optString("name", "")
-                    val artistName = trackObj.optJSONObject("artist")?.optString("name", "")
+                    val artistName = trackObj.optJSONObject("artist")?.optString("name", "") ?: ""
                     if (name.isBlank() || artistName.isBlank()) continue
 
                     // Get artwork from Last.fm images
@@ -104,7 +104,7 @@ class LastFmRepository @Inject constructor() {
                 for (i in 0 until tracks.length()) {
                     val trackObj = tracks.optJSONObject(i) ?: continue
                     val name = trackObj.optString("name", "")
-                    val artistName = trackObj.optJSONObject("artist")?.optString("name", "")
+                    val artistName = trackObj.optJSONObject("artist")?.optString("name", "") ?: ""
                     if (name.isBlank() || artistName.isBlank()) continue
 
                     songs.add(
