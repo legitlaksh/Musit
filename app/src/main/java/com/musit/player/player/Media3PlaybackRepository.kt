@@ -42,7 +42,8 @@ import javax.inject.Singleton
 class Media3PlaybackRepository @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val music: MusicRepository,
-    private val library: LibraryRepository
+    private val library: LibraryRepository,
+    private val stats: com.musit.player.data.repository.StatsRepository
 ) : PlaybackRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -349,6 +350,12 @@ class Media3PlaybackRepository @Inject constructor(
         _positionMs.value = 0L
         _durationMs.value = 0L
         _playerError.value = null
+        // Record stats
+        song?.let {
+            try {
+                stats.recordPlay(it.title, it.artist, it.durationSec ?: 0L)
+            } catch (e: Exception) { }
+        }
         emitQueueState()
         if (song == null) {
             _isLoading.value = false
