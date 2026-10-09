@@ -215,14 +215,6 @@ fun PlayerScreen(
                         sliderOverride = null
                     },
                     valueRange = 0f..duration.toFloat(),
-                    thumb = {
-                        Box(
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                        )
-                    },
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = Color.White,
