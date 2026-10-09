@@ -1,6 +1,8 @@
 package com.musit.player.ui.player
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +63,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.musit.player.player.RepeatMode
+import com.musit.player.data.repository.LyricsResult
 import com.musit.player.ui.formatMs
 
 /**
@@ -82,6 +86,13 @@ fun PlayerScreen(
     val positionMs by playback.positionMs.collectAsStateWithLifecycle()
     val durationMs by playback.durationMs.collectAsStateWithLifecycle()
     val playerError by playback.playerError.collectAsStateWithLifecycle()
+
+    // Artwork scale animation (subtle pulse when playing)
+    val artworkScale by animateFloatAsState(
+        targetValue = if (isPlaying) 1.02f else 1f,
+        animationSpec = tween(durationMillis = 500),
+        label = "artworkScale"
+    )
     val shuffleEnabled by playback.shuffleEnabled.collectAsStateWithLifecycle()
     val repeatMode by playback.repeatMode.collectAsStateWithLifecycle()
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
@@ -156,7 +167,12 @@ fun PlayerScreen(
                     AsyncImage(
                         model = current.artworkUrl,
                         contentDescription = null,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                scaleX = artworkScale
+                                scaleY = artworkScale
+                            },
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -332,13 +348,34 @@ fun PlayerScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     if (lyricsLoading) {
                         Text("Loading lyrics...", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
-                    } else if (!lyrics.isNullOrBlank()) {
-                        val preview = if (lyricsExpanded) lyrics!! else lyrics!!.lines().take(2).joinToString("\n")
-                        Text(preview, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp,
-                            maxLines = if (lyricsExpanded) Int.MAX_VALUE else 2,
-                            overflow = TextOverflow.Ellipsis)
                     } else {
-                        Text("Lyrics not available", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
+                        when (val l = lyrics) {
+                            is LyricsResult.Synced -> {
+                                if (lyricsExpanded) {
+                                    // Karaoke view with auto-scroll
+                                    SyncedLyricsView(
+                                        lines = l.lines,
+                                        currentPositionMs = positionMs,
+                                        modifier = Modifier.fillMaxWidth().height(300.dp)
+                                    )
+                                } else {
+                                    // Preview: show current line
+                                    val currentIndex = l.lines.indexOfLast { it.timestampMs <= positionMs }.coerceAtLeast(0)
+                                    val preview = l.lines.getOrNull(currentIndex)?.text ?: l.lines.firstOrNull()?.text ?: ""
+                                    Text(preview, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            is LyricsResult.Plain -> {
+                                val preview = if (lyricsExpanded) l.text else l.text.lines().take(2).joinToString("\n")
+                                Text(preview, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp,
+                                    maxLines = if (lyricsExpanded) Int.MAX_VALUE else 2,
+                                    overflow = TextOverflow.Ellipsis)
+                            }
+                            LyricsResult.NotFound -> {
+                                Text("Lyrics not available", color = Color.White.copy(alpha = 0.4f), fontSize = 14.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -386,7 +423,15 @@ fun PlayerScreen(
             title = { Text("Lyrics") },
             text = {
                 if (lyricsLoading) Text("Loading...")
-                else Text(lyrics ?: "No lyrics found for this song.")
+                else when (val l = lyrics) {
+                    is LyricsResult.Synced -> SyncedLyricsView(
+                        lines = l.lines,
+                        currentPositionMs = positionMs,
+                        modifier = Modifier.fillMaxWidth().height(400.dp)
+                    )
+                    is LyricsResult.Plain -> Text(l.text)
+                    LyricsResult.NotFound -> Text("No lyrics found for this song.")
+                }
             },
             confirmButton = {},
             dismissButton = { TextButton(onClick = { showLyricsDialog = false }) { Text("Close") } }
