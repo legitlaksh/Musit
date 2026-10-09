@@ -106,6 +106,7 @@ fun PlayerScreen(
     val sleepActive by viewModel.sleepTimer.isActive.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsLoading by viewModel.lyricsLoading.collectAsStateWithLifecycle()
+    val lyricsOffsetMs by viewModel.lyricsOffsetMs.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     fun shareSong() {
@@ -352,11 +353,31 @@ fun PlayerScreen(
                         when (val l = lyrics) {
                             is LyricsResult.Synced -> {
                                 if (lyricsExpanded) {
+                                    // Sync adjustment controls
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TextButton(onClick = { viewModel.adjustLyricsOffset(-500) }) {
+                                            Text("-0.5s", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                                        }
+                                        Text(
+                                            if (lyricsOffsetMs == 0L) "Sync" else "${lyricsOffsetMs / 1000.0}s",
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(horizontal = 8.dp)
+                                        )
+                                        TextButton(onClick = { viewModel.adjustLyricsOffset(500) }) {
+                                            Text("+0.5s", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                                        }
+                                    }
                                     // Karaoke view with auto-scroll
                                     SyncedLyricsView(
                                         lines = l.lines,
                                         currentPositionMs = positionMs,
-                                        modifier = Modifier.fillMaxWidth().height(300.dp)
+                                        offsetMs = lyricsOffsetMs,
+                                        modifier = Modifier.fillMaxWidth().height(280.dp)
                                     )
                                 } else {
                                     // Preview: show current line
@@ -427,6 +448,7 @@ fun PlayerScreen(
                     is LyricsResult.Synced -> SyncedLyricsView(
                         lines = l.lines,
                         currentPositionMs = positionMs,
+                        offsetMs = lyricsOffsetMs,
                         modifier = Modifier.fillMaxWidth().height(400.dp)
                     )
                     is LyricsResult.Plain -> Text(l.text)
