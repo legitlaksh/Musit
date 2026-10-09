@@ -60,6 +60,11 @@ class PlayerService : MediaSessionService() {
         const val EXTRA_WIDGET_ARTIST = "widget_artist"
         const val EXTRA_WIDGET_ARTWORK = "widget_artwork"
         const val EXTRA_WIDGET_PLAYING = "widget_playing"
+
+        // Audio session ID for equalizer (set when player is created)
+        @Volatile
+        var audioSessionId: Int = 0
+            private set
     }
 
     private val sessionCallback = object : MediaSession.Callback {
@@ -197,6 +202,8 @@ class PlayerService : MediaSessionService() {
             .setAudioAttributes(audioAttributes, true)
             .build()
         player = exoPlayer
+        // Expose audio session ID for equalizer
+        audioSessionId = exoPlayer.audioSessionId
         // Update custom layout buttons when track changes
         exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
             override fun onMediaItemTransition(
