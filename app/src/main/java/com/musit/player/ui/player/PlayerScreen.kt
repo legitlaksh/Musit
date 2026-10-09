@@ -198,15 +198,17 @@ fun PlayerScreen(
         }
 
         // 2. Blend: transparent top -> dark bottom so text/controls stay readable
+        // Stronger gradient for readability over bright artwork
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        0.32f to Color.Transparent,
-                        0.62f to Color.Black.copy(alpha = 0.55f),
-                        1f to Color.Black.copy(alpha = 0.8f)
+                        0f to Color.Black.copy(alpha = 0.25f),
+                        0.35f to Color.Transparent,
+                        0.50f to Color.Black.copy(alpha = 0.45f),
+                        0.70f to Color.Black.copy(alpha = 0.75f),
+                        1f to Color.Black.copy(alpha = 0.92f)
                     )
                 )
         )
