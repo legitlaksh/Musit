@@ -69,16 +69,19 @@ class PlayerService : MediaSessionService() {
                 COMMAND_TOGGLE_LIKE -> {
                     serviceScope.launch {
                         try {
-                            // Get current song from player metadata
                             val currentItem = player?.currentMediaItem
                             val songId = currentItem?.mediaId
                             if (songId != null) {
-                                // We need the Song object to toggle favorite
-                                // For now, use the media metadata
+                                val metadata = currentItem.mediaMetadata
+                                // Reconstruct Song from media metadata
+                                val song = com.musit.player.model.Song(
+                                    id = songId,
+                                    title = metadata.title?.toString() ?: "Unknown",
+                                    artist = metadata.artist?.toString() ?: "Unknown",
+                                    artworkUrl = metadata.artworkUri?.toString()
+                                )
                                 val isFav = libraryRepository.isFavorite(songId).first()
-                                // Note: toggleFavorite needs a Song object, we have the ID
-                                // This is a limitation - we'd need to fetch the Song
-                                // For v28, we'll handle this via the UI layer
+                                libraryRepository.toggleFavorite(song, isFav)
                             }
                             updateCustomLayout()
                         } catch (e: Exception) {
