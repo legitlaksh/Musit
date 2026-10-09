@@ -325,7 +325,7 @@ fun PlayerScreen(
                     onClick = { shareSong() }
                 )
                 IconLabelButton(
-                    icon = Icons.Filled.Speed,
+                    icon = Icons.Filled.FastForward,
                     label = "Speed",
                     onClick = { showSpeedDialog = true }
                 )
