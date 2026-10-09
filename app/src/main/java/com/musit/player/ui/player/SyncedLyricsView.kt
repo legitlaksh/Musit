@@ -30,12 +30,14 @@ import com.musit.player.data.repository.LyricLine
 fun SyncedLyricsView(
     lines: List<LyricLine>,
     currentPositionMs: Long,
+    offsetMs: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    val adjustedPosition = currentPositionMs + offsetMs
 
     // Find current line index
-    val currentIndex = lines.indexOfLast { it.timestampMs <= currentPositionMs }
+    val currentIndex = lines.indexOfLast { it.timestampMs <= adjustedPosition }
         .coerceAtLeast(0)
 
     // Auto-scroll to current line
