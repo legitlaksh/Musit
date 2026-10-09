@@ -30,7 +30,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -74,7 +76,7 @@ fun SettingsScreen(
     var qualityDialogOpen by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A)),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(bottom = 120.dp)
     ) {
         // Header
@@ -86,7 +88,7 @@ fun SettingsScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White)
                 }
-                Text("Settings", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Settings", color = MaterialTheme.colorScheme.onBackground, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -272,12 +274,12 @@ private fun SettingsItem(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(24.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.size(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp)
-            Text(subtitle, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 16.sp)
+            Text(subtitle, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 14.sp)
         }
-        Icon(Icons.Filled.ChevronRight, null, tint = Color.White.copy(alpha = 0.4f))
+        Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f))
     }
 }
