@@ -35,36 +35,94 @@ class LyricsRepository @Inject constructor() {
 
     suspend fun getLyrics(artist: String, title: String): LyricsResult = withContext(Dispatchers.IO) {
         try {
-            val a = URLEncoder.encode(artist, "UTF-8")
-            val t = URLEncoder.encode(title, "UTF-8")
-            val url = URL("https://lrclib.net/api/get?artist_name=$a&track_name=$t")
+            // Clean the title (remove "Official Video", etc.)
+            val cleanTitle = title
+                .replace(Regex("\\(Official.*?\\)", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("\\[Official.*?\\]", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("Official Video", RegexOption.IGNORE_CASE), "")
+                .trim()
+                .ifBlank { title }
+
+            // If artist is generic, try with just the title
+            val isGenericArtist = artist.equals("Video", ignoreCase = true) ||
+                    artist.equals("Unknown artist", ignoreCase = true) ||
+                    artist.isBlank()
+
+            // Try artist + title first (unless generic)
+            if (!isGenericArtist) {
+                val result = fetchLyrics(artist, cleanTitle)
+                if (result is LyricsResult.Synced || result is LyricsResult.Plain) {
+                    return@withContext result
+                }
+            }
+
+            // Fallback: try with cleaned title only (search API)
+            val searchResult = searchLyrics(cleanTitle)
+            if (searchResult != null) {
+                return@withContext searchResult
+            }
+
+            LyricsResult.NotFound
+        } catch (e: Exception) {
+            LyricsResult.NotFound
+        }
+    }
+
+    private suspend fun fetchLyrics(artist: String, title: String): LyricsResult {
+        val a = URLEncoder.encode(artist, "UTF-8") ?: return LyricsResult.NotFound
+        val t = URLEncoder.encode(title, "UTF-8") ?: return LyricsResult.NotFound
+        val url = URL("https://lrclib.net/api/get?artist_name=$a&track_name=$t")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.connectTimeout = 10000
+        conn.readTimeout = 10000
+        conn.setRequestProperty("User-Agent", "musit-android/1.0")
+        if (conn.responseCode != 200) return LyricsResult.NotFound
+        val body = conn.inputStream.bufferedReader().readText()
+        val json = JSONObject(body)
+
+        val synced = json.optString("syncedLyrics", "")
+        if (synced.isNotBlank()) {
+            val lines = parseLrc(synced)
+            if (lines.isNotEmpty()) {
+                return LyricsResult.Synced(lines)
+            }
+        }
+
+        val plain = json.optString("plainLyrics", "")
+        if (plain.isNotBlank()) {
+            return LyricsResult.Plain(plain)
+        }
+        return LyricsResult.NotFound
+    }
+
+    /**
+     * Search API fallback for when artist is unknown.
+     */
+    private suspend fun searchLyrics(query: String): LyricsResult? {
+        try {
+            val q = URLEncoder.encode(query, "UTF-8") ?: return null
+            val url = URL("https://lrclib.net/api/search?q=$q")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
             conn.setRequestProperty("User-Agent", "musit-android/1.0")
-            if (conn.responseCode != 200) return@withContext LyricsResult.NotFound
+            if (conn.responseCode != 200) return null
             val body = conn.inputStream.bufferedReader().readText()
-            val json = JSONObject(body)
+            val arr = org.json.JSONArray(body)
+            if (arr.length() == 0) return null
 
-            // Try synced lyrics first
-            val synced = json.optString("syncedLyrics", "")
+            val first = arr.optJSONObject(0) ?: return null
+            val synced = first.optString("syncedLyrics", "")
             if (synced.isNotBlank()) {
                 val lines = parseLrc(synced)
-                if (lines.isNotEmpty()) {
-                    return@withContext LyricsResult.Synced(lines)
-                }
+                if (lines.isNotEmpty()) return LyricsResult.Synced(lines)
             }
-
-            // Fallback to plain lyrics
-            val plain = json.optString("plainLyrics", "")
-            if (plain.isNotBlank()) {
-                LyricsResult.Plain(plain)
-            } else {
-                LyricsResult.NotFound
-            }
+            val plain = first.optString("plainLyrics", "")
+            if (plain.isNotBlank()) return LyricsResult.Plain(plain)
         } catch (e: Exception) {
-            LyricsResult.NotFound
+            // Ignore
         }
+        return null
     }
 
     /**
