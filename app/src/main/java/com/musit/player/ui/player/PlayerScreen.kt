@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -215,9 +215,34 @@ fun PlayerScreen(
                         sliderOverride = null
                     },
                     valueRange = 0f..duration.toFloat(),
+                    thumb = {
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        )
+                    },
+                    track = { sliderState ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.25f))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(sliderState.coercedValueAsFraction)
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color.White)
+                            )
+                        }
+                    },
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
-                        activeTrackColor = Color.White.copy(alpha = 0.9f),
+                        activeTrackColor = Color.White,
                         inactiveTrackColor = Color.White.copy(alpha = 0.25f)
                     )
                 )
@@ -283,18 +308,30 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 IconButton(onClick = onOpenQueue) {
-                    Icon(Icons.Filled.QueueMusic, "Queue", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.QueueMusic, "Queue", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                        Text("Queue", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                    }
                 }
                 IconButton(onClick = { showSleepDialog = true }) {
-                    Icon(Icons.Filled.Timer, "Sleep timer",
-                        tint = if (sleepActive) Color(0xFF9D4EDD) else Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.size(24.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.Timer, "Sleep timer",
+                            tint = if (sleepActive) Color(0xFF9D4EDD) else Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(24.dp))
+                        Text("Sleep", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                    }
                 }
                 IconButton(onClick = { showLyricsDialog = true }) {
-                    Icon(Icons.Filled.Mic, "Lyrics", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.AutoMirrored.Filled.Notes, "Lyrics", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                        Text("Lyrics", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                    }
                 }
                 IconButton(onClick = { shareSong() }) {
-                    Icon(Icons.Filled.Share, "Share", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.Share, "Share", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(24.dp))
+                        Text("Share", color = Color.White.copy(alpha = 0.5f), fontSize = 10.sp)
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
