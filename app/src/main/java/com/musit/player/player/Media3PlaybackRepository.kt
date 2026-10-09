@@ -220,7 +220,7 @@ class Media3PlaybackRepository @Inject constructor(
     }
 
     override fun setPlaybackSpeed(speed: Float) {
-        player?.setPlaybackSpeed(speed)
+        controller?.setPlaybackSpeed(speed)
         _playbackSpeed.value = speed
     }
 
