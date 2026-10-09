@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -261,8 +262,13 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Trending", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("See All", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp,
-                    modifier = Modifier.clickable { onMoodClick("trending") })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { viewModel.refreshTrending() }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Refresh, "Refresh", tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                    }
+                    Text("See All", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp,
+                        modifier = Modifier.clickable { onMoodClick("trending") })
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
         }
