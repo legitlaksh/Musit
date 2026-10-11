@@ -127,10 +127,10 @@ fun SearchScreen(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF9D4EDD),
                 unfocusedBorderColor = Color.Transparent,
-                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                unfocusedContainerColor = Color.White.copy(alpha = 0.08f),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
+                focusedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { viewModel.search(query) })
