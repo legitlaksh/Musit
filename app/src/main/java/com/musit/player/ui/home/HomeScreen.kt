@@ -171,7 +171,7 @@ fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     QuickAccessCard(
                         title = "Liked Songs",
-                        icon = { Icon(Icons.Filled.Favorite, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
+                        icon = { Icon(Icons.Filled.Favorite, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
                         bgColor = Color(0xFF1A1A2E),
                         modifier = Modifier.weight(1f),
                         onClick = onLikedClick
@@ -194,7 +194,7 @@ fun HomeScreen(
                     )
                     QuickAccessCard(
                         title = "Your Mix",
-                        icon = { Icon(Icons.Filled.AutoAwesome, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp)) },
+                        icon = { Icon(Icons.Filled.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(24.dp)) },
                         bgColor = Color(0xFF6A1B9A),
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.generateSmartMix() }
@@ -272,7 +272,7 @@ fun HomeScreen(
             }
             Text(
                 "Based on your taste",
-                color = Color.White.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                 fontSize = 13.sp,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
             )
@@ -284,7 +284,7 @@ fun HomeScreen(
             is UiState.Error -> item {
                 Text(
                     r.message,
-                    color = Color.White.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                     fontSize = 14.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                 )
@@ -318,7 +318,7 @@ fun HomeScreen(
                     }
                     Text(
                         "Made for this time of day",
-                        color = Color.White.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                         fontSize = 13.sp,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                     )
@@ -368,7 +368,7 @@ private fun QuickAccessCard(
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
-        Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+        Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
@@ -396,7 +396,7 @@ private fun MockupSongRow(song: Song, onClick: () -> Unit) {
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         IconButton(onClick = onClick) {
-            Icon(Icons.Filled.PlayArrow, null, tint = Color.White)
+            Icon(Icons.Filled.PlayArrow, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
         }
     }
 }
