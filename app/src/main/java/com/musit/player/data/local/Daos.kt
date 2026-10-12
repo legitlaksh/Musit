@@ -84,3 +84,18 @@ interface PlaylistDao {
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
     suspend fun removeSong(playlistId: Long, songId: String)
 }
+
+@Dao
+interface DownloadDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entry: DownloadEntity)
+
+    @Query("SELECT * FROM downloads ORDER BY downloadedAt DESC")
+    fun observeAll(): Flow<List<DownloadEntity>>
+
+    @Query("SELECT * FROM downloads WHERE songId = :songId")
+    suspend fun get(songId: String): DownloadEntity?
+
+    @Query("DELETE FROM downloads WHERE songId = :songId")
+    suspend fun delete(songId: String)
+}
