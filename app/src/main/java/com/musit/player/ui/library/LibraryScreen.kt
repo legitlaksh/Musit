@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.musit.player.data.repository.PlaylistInfo
 import com.musit.player.model.Song
 import com.musit.player.ui.components.EmptyView
@@ -64,15 +66,17 @@ fun LibraryScreen(
     onAddToPlaylist: (Song) -> Unit,
     onOpenPlaylist: (Long) -> Unit,
     onSearchClick: () -> Unit = {},
+    initialTab: String? = null,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val recents by viewModel.recents.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val localSongs by viewModel.localSongs.collectAsStateWithLifecycle()
+    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    var selectedTab by remember { mutableStateOf("Playlists") }
+    var selectedTab by remember(initialTab) { mutableStateOf(initialTab ?: "Playlists") }
     val tabs = listOf("Playlists", "Artists", "Albums", "Downloads")
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -181,24 +185,38 @@ fun LibraryScreen(
                 }
             }
             "Downloads" -> {
-                if (localSongs.isEmpty()) {
+                if (downloads.isEmpty()) {
                     item {
                         EmptyView(message = "No downloads", hint = "Download songs to listen offline")
                     }
                 } else {
-                    items(localSongs.size) { i ->
-                        val song = localSongs[i]
+                    items(downloads, key = { it.songId }) { download ->
                         Row(
                             modifier = Modifier.fillMaxWidth()
-                                .clickable { onSongClick(localSongs, i) }
+                                .clickable { viewModel.playDownload(download, downloads) }
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            AsyncImage(
+                                model = download.artworkUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(52.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.08f))
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(song.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp,
+                                Text(download.title, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(song.artist, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp,
+                                Text(download.artist, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f), fontSize = 13.sp,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            IconButton(onClick = { viewModel.deleteDownload(download.songId) }) {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Remove download",
+                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                )
                             }
                         }
                     }
