@@ -25,6 +25,9 @@ interface PlaybackRepository {
     val playbackSpeed: StateFlow<Float>
     val audioSessionId: StateFlow<Int>
 
+    /** Audio session of the currently audible player (follows crossfade handoffs). */
+    val activeAudioSessionId: StateFlow<Int>
+
     /** Plays a single song (replaces the queue). */
     fun playSong(song: Song)
 
