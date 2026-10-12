@@ -3,16 +3,20 @@ package com.musit.player.player
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.musit.player.data.repository.LibraryRepository
 import com.musit.player.data.repository.MusicRepository
+import com.musit.player.data.store.SettingsStore
 import com.musit.player.model.QueueState
 import com.musit.player.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -43,7 +48,8 @@ class Media3PlaybackRepository @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val music: MusicRepository,
     private val library: LibraryRepository,
-    private val stats: com.musit.player.data.repository.StatsRepository
+    private val stats: com.musit.player.data.repository.StatsRepository,
+    private val settings: SettingsStore
 ) : PlaybackRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -84,6 +90,70 @@ class Media3PlaybackRepository @Inject constructor(
     private val _audioSessionId = MutableStateFlow(0)
     override val audioSessionId: StateFlow<Int> = _audioSessionId.asStateFlow()
 
+    private val _activeAudioSessionId = MutableStateFlow(0)
+    override val activeAudioSessionId: StateFlow<Int> = _activeAudioSessionId.asStateFlow()
+
+    // ------------------------------------------------------------------
+    // crossfade state
+    // ------------------------------------------------------------------
+
+    private var crossfadeEnabled = true
+    private var crossfadeSec = 5
+
+    /** True once the crossfade has handed off and the secondary player is audible. */
+    private var xfadeActive = false
+
+    /** True while a fade between the two players is running. */
+    private var crossfading = false
+
+    private var crossfadeJob: Job? = null
+
+    /** Song id for which stats.recordPlay has already been counted (Fix 4). */
+    private var statsRecordedSongId: String? = null
+
+    private val xfadeListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED && xfadeActive) {
+                finishXfadeToPrimaryNext()
+            }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            if (xfadeActive) {
+                xfadeActive = false
+                xfadePlayerOrNull()?.stop()
+                advance()
+            }
+        }
+    }
+
+    /**
+     * Secondary player used only for genuine overlapping crossfades.
+     * handleAudioFocus=false so the two players never fight over audio focus.
+     */
+    private val xfadePlayer: ExoPlayer by lazy {
+        ExoPlayer.Builder(appContext)
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                false
+            )
+            .build()
+            .also { it.addListener(xfadeListener) }
+    }
+
+    /** The player that is currently audible (or should be, pre-handoff). */
+    private fun activePlayer(): Player? = if (xfadeActive) xfadePlayer else controller
+
+    /**
+     * The secondary player only if a fade has actually created it; avoids
+     * needlessly spinning up a second ExoPlayer on pause/cancel paths.
+     */
+    private fun xfadePlayerOrNull(): ExoPlayer? =
+        if (this::xfadePlayer.isInitialized) xfadePlayer else null
+
     // ------------------------------------------------------------------
     // queue model
     // ------------------------------------------------------------------
@@ -123,6 +193,8 @@ class Media3PlaybackRepository @Inject constructor(
 
     init {
         connect()
+        scope.launch { settings.crossfadeEnabled.collect { crossfadeEnabled = it } }
+        scope.launch { settings.crossfadeDurationSec.collect { crossfadeSec = it } }
     }
 
     private fun connect() {
@@ -137,6 +209,11 @@ class Media3PlaybackRepository @Inject constructor(
                     null
                 }
                 controller?.addListener(playerListener)
+                // Assign both session flows when the controller connects (fixes the
+                // never-assigned _audioSessionId and seeds the crossfade-aware one).
+                val sessionId = controller?.audioSessionId ?: 0
+                _audioSessionId.value = sessionId
+                _activeAudioSessionId.value = sessionId
                 startPolling()
             },
             MoreExecutors.directExecutor()
@@ -161,29 +238,46 @@ class Media3PlaybackRepository @Inject constructor(
     }
 
     override fun togglePlayPause() {
-        val c = controller ?: return
-        if (c.isPlaying) c.pause() else c.play()
+        val p = activePlayer() ?: return
+        if (p.isPlaying) p.pause() else p.play()
     }
 
     override fun pause() {
-        controller?.pause()
+        if (crossfading && !xfadeActive) {
+            // A fade is in flight: kill it and hand control back to the session player.
+            crossfadeJob?.cancel()
+            crossfading = false
+            xfadePlayerOrNull()?.pause()
+            controller?.volume = 1f
+        }
+        activePlayer()?.pause()
         _isPlaying.value = false
     }
 
     override fun next() {
         if (_repeatMode.value == RepeatMode.ONE) {
             seekTo(0)
-            controller?.play()
+            activePlayer()?.play()
             return
         }
+        cancelCrossfade()
         advance()
     }
 
     override fun previous() {
-        val c = controller
-        if ((c?.currentPosition ?: 0L) > 3000L) {
+        val p = activePlayer()
+        if ((p?.currentPosition ?: 0L) > 3000L) {
             seekTo(0)
             return
+        }
+        if (xfadeActive) {
+            // Going back while the secondary player is audible: drop the crossfade.
+            crossfadeJob?.cancel()
+            crossfading = false
+            xfadeActive = false
+            xfadePlayerOrNull()?.stop()
+            _activeAudioSessionId.value = controller?.audioSessionId ?: 0
+            controller?.volume = 1f
         }
         if (queueSongs.isEmpty() || queueIndex < 0) return
         val order = playOrder()
@@ -202,7 +296,7 @@ class Media3PlaybackRepository @Inject constructor(
     }
 
     override fun seekTo(positionMs: Long) {
-        controller?.seekTo(positionMs.coerceAtLeast(0L))
+        activePlayer()?.seekTo(positionMs.coerceAtLeast(0L))
     }
 
     override fun setShuffle(enabled: Boolean) {
@@ -220,12 +314,13 @@ class Media3PlaybackRepository @Inject constructor(
     }
 
     override fun setPlaybackSpeed(speed: Float) {
-        controller?.setPlaybackSpeed(speed)
+        activePlayer()?.setPlaybackSpeed(speed)
         _playbackSpeed.value = speed
     }
 
     override fun removeFromQueue(index: Int) {
         if (index !in queueSongs.indices) return
+        if (index == queueIndex) cancelCrossfade()
         val wasCurrent = index == queueIndex
         queueSongs.removeAt(index)
         when {
@@ -270,6 +365,7 @@ class Media3PlaybackRepository @Inject constructor(
         shuffleOrder = emptyList()
         loadJob?.cancel()
         watchdogJob?.cancel()
+        cancelCrossfade()
         activeUrls = emptyList()
         controller?.stop()
         controller?.clearMediaItems()
@@ -348,17 +444,15 @@ class Media3PlaybackRepository @Inject constructor(
     private fun loadCurrent() {
         loadJob?.cancel()
         watchdogJob?.cancel()
+        cancelCrossfade()
         val song = queueSongs.getOrNull(queueIndex)
         _currentSong.value = song
         _positionMs.value = 0L
         _durationMs.value = 0L
         _playerError.value = null
-        // Record stats
-        song?.let {
-            try {
-                stats.recordPlay(it.title, it.artist, it.durationSec ?: 0L)
-            } catch (e: Exception) { }
-        }
+        // Stats are counted lazily by the polling loop once audible playback
+        // passes 3s (Fix 4), never on failed/skipped loads.
+        statsRecordedSongId = null
         emitQueueState()
         if (song == null) {
             _isLoading.value = false
@@ -367,11 +461,7 @@ class Media3PlaybackRepository @Inject constructor(
         _isLoading.value = true
         loadJob = scope.launch {
             val uris: List<String> = withContext(Dispatchers.IO) {
-                if (music.isLocal(song)) {
-                    listOfNotNull(music.localUri(song.id))
-                } else {
-                    music.streamUrls(song.id).getOrNull().orEmpty()
-                }
+                music.resolvePlayableUris(song)
             }
             val c = controller
             when {
@@ -423,6 +513,112 @@ class Media3PlaybackRepository @Inject constructor(
                 tryPlayUrls(song, urls, index + 1)
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // crossfade internals
+    // ------------------------------------------------------------------
+
+    /**
+     * Aborts any in-progress crossfade and returns audible control to the
+     * session player. Safe to call when no crossfade is running (no-op).
+     * Only touches the secondary player if it was already created, so the
+     * extra ExoPlayer is only ever built when a fade actually starts.
+     */
+    private fun cancelCrossfade() {
+        crossfadeJob?.cancel()
+        crossfading = false
+        if (xfadeActive) {
+            xfadeActive = false
+            xfadePlayerOrNull()?.stop()
+            _activeAudioSessionId.value = controller?.audioSessionId ?: 0
+        }
+        controller?.volume = 1f
+    }
+
+    /**
+     * Mirrors [advance]'s next-song selection without mutating any state.
+     * Returns null when there is no next song (queue end without REPEAT_ALL).
+     */
+    private fun peekNextSong(): Song? {
+        if (queueSongs.isEmpty() || queueIndex < 0) return null
+        val order = playOrder()
+        val pos = order.indexOf(queueIndex)
+        return when {
+            pos >= 0 && pos + 1 < order.size -> queueSongs.getOrNull(order[pos + 1])
+            _repeatMode.value == RepeatMode.ALL && order.isNotEmpty() -> queueSongs.getOrNull(order[0])
+            else -> null
+        }
+    }
+
+    /**
+     * Starts a genuine overlapping crossfade into [next]: the next song is
+     * resolved and played on the secondary [xfadePlayer] while the session
+     * player's volume ramps down, then the secondary player takes over as the
+     * audible source until the next track change.
+     */
+    private fun beginCrossfade(next: Song) {
+        if (crossfading || xfadeActive) return
+        crossfading = true
+        scope.launch {
+            val uris = withContext(Dispatchers.IO) { music.resolvePlayableUris(next) }
+            if (uris.isEmpty() || !crossfading) {
+                crossfading = false
+                return@launch
+            }
+            try {
+                xfadePlayer.setMediaItem(buildMediaItem(next, uris[0]))
+                xfadePlayer.prepare()
+                xfadePlayer.play()
+                xfadePlayer.volume = 0f
+            } catch (e: Exception) {
+                crossfading = false
+                return@launch
+            }
+            val steps = 20
+            val stepMs = crossfadeSec * 1000L / steps
+            crossfadeJob = scope.launch {
+                try {
+                    for (i in 1..steps) {
+                        delay(stepMs)
+                        val t = i.toFloat() / steps
+                        controller?.volume = (1 - t).coerceIn(0f, 1f)
+                        if (xfadePlayer.isPlaying) xfadePlayer.volume = t
+                    }
+                    // Handoff: the session player goes quiet, the secondary
+                    // player is now the audible one.
+                    controller?.stop()
+                    controller?.volume = 1f
+                    xfadeActive = true
+                    crossfading = false
+                    queueIndex = queueSongs.indexOfFirst { it.id == next.id }
+                        .takeIf { it >= 0 } ?: queueIndex
+                    _currentSong.value = next
+                    emitQueueState()
+                    _activeAudioSessionId.value = xfadePlayer.audioSessionId
+                    runCatching { library.addRecent(next) }
+                    // Stats are counted by the polling loop once audible
+                    // playback passes 3s (never on failed/skipped loads).
+                    statsRecordedSongId = null
+                    // Refresh notification metadata on the session player
+                    // (paused, so no audible gap).
+                    controller?.setMediaItem(buildMediaItem(next, uris[0]))
+                    controller?.prepare()
+                } catch (e: Exception) {
+                    // Covers cancellation: reset so a later trigger can retry.
+                    crossfading = false
+                }
+            }
+        }
+    }
+
+    /** xfadePlayer finished while audible: stop it and advance on the session player. */
+    private fun finishXfadeToPrimaryNext() {
+        if (!xfadeActive) return
+        xfadeActive = false
+        xfadePlayer.stop()
+        _activeAudioSessionId.value = controller?.audioSessionId ?: 0
+        advance()
     }
 
     private fun buildMediaItem(song: Song, uri: String): MediaItem {
@@ -564,12 +760,35 @@ class Media3PlaybackRepository @Inject constructor(
         pollingStarted = true
         scope.launch {
             while (true) {
-                val c = controller
-                if (c != null) {
-                    _isPlaying.value = c.isPlaying
-                    _positionMs.value = c.currentPosition.coerceAtLeast(0L)
-                    val d = c.duration
+                val p = activePlayer()
+                if (p != null) {
+                    _isPlaying.value = p.isPlaying
+                    _positionMs.value = p.currentPosition.coerceAtLeast(0L)
+                    val d = p.duration
                     if (d > 0) _durationMs.value = d
+                    // Genuine crossfade trigger: within crossfadeSec of the
+                    // song's end, start fading into the next song.
+                    val pos = p.currentPosition
+                    if (crossfadeEnabled && !xfadeActive && !crossfading &&
+                        p.isPlaying && p === controller &&
+                        _repeatMode.value != RepeatMode.ONE &&
+                        d > 0 && pos > 0 && (d - pos) <= crossfadeSec * 1000L
+                    ) {
+                        peekNextSong()?.let { beginCrossfade(it) }
+                    }
+                }
+                // Fix 4: count a play only after real audible playback starts
+                // (>3s), once per song, never on failed/skipped loads.
+                val song = _currentSong.value
+                val songId = song?.id
+                if (songId != null && songId != statsRecordedSongId) {
+                    val ap = activePlayer()
+                    if (ap?.isPlaying == true && ap.currentPosition > 3000L) {
+                        try {
+                            stats.recordPlay(song.title, song.artist, song.durationSec ?: 0L)
+                        } catch (e: Exception) { }
+                        statsRecordedSongId = songId
+                    }
                 }
                 delay(500)
             }
