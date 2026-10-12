@@ -33,7 +33,7 @@ sealed class LyricsResult {
 @Singleton
 class LyricsRepository @Inject constructor() {
 
-    suspend fun getLyrics(artist: String, title: String): LyricsResult = withContext(Dispatchers.IO) {
+    suspend fun getLyrics(artist: String, title: String, durationSec: Long? = null): LyricsResult = withContext(Dispatchers.IO) {
         try {
             // Clean the title (remove "Official Video", etc.)
             val cleanTitle = title
@@ -48,16 +48,16 @@ class LyricsRepository @Inject constructor() {
                     artist.equals("Unknown artist", ignoreCase = true) ||
                     artist.isBlank()
 
-            // Try artist + title first (unless generic)
+            // Try artist + title (+ duration) first (unless generic)
             if (!isGenericArtist) {
-                val result = fetchLyrics(artist, cleanTitle)
+                val result = fetchLyrics(artist, cleanTitle, durationSec)
                 if (result is LyricsResult.Synced || result is LyricsResult.Plain) {
                     return@withContext result
                 }
             }
 
-            // Fallback: try with cleaned title only (search API)
-            val searchResult = searchLyrics(cleanTitle)
+            // Fallback: search API, preferring artist + duration matches
+            val searchResult = searchLyrics(cleanTitle, artist.takeIf { !isGenericArtist }, durationSec)
             if (searchResult != null) {
                 return@withContext searchResult
             }
@@ -68,10 +68,17 @@ class LyricsRepository @Inject constructor() {
         }
     }
 
-    private suspend fun fetchLyrics(artist: String, title: String): LyricsResult {
+    /** Duration tolerance (seconds) when matching search results to the playing song. */
+    private companion object {
+        const val DURATION_TOLERANCE_SEC = 10L
+    }
+
+    private suspend fun fetchLyrics(artist: String, title: String, durationSec: Long? = null): LyricsResult {
         val a = URLEncoder.encode(artist, "UTF-8") ?: return LyricsResult.NotFound
         val t = URLEncoder.encode(title, "UTF-8") ?: return LyricsResult.NotFound
-        val url = URL("https://lrclib.net/api/get?artist_name=$a&track_name=$t")
+        // LRCLIB /api/get accepts an optional duration param to disambiguate versions.
+        val durationParam = if (durationSec != null && durationSec > 0) "&duration=$durationSec" else ""
+        val url = URL("https://lrclib.net/api/get?artist_name=$a&track_name=$t$durationParam")
         val conn = url.openConnection() as HttpURLConnection
         conn.connectTimeout = 10000
         conn.readTimeout = 10000
@@ -96,9 +103,13 @@ class LyricsRepository @Inject constructor() {
     }
 
     /**
-     * Search API fallback for when artist is unknown.
+     * Search API fallback for when artist is unknown or /api/get missed.
+     * Scores every result instead of blindly taking the first: prefers
+     * artist matches, then duration within [DURATION_TOLERANCE_SEC], then
+     * synced lyrics over plain text. This avoids grabbing lyrics for the
+     * wrong version (remix/live/cover) of a song.
      */
-    private suspend fun searchLyrics(query: String): LyricsResult? {
+    private suspend fun searchLyrics(query: String, artist: String?, durationSec: Long?): LyricsResult? {
         try {
             val q = URLEncoder.encode(query, "UTF-8") ?: return null
             val url = URL("https://lrclib.net/api/search?q=$q")
@@ -111,7 +122,35 @@ class LyricsRepository @Inject constructor() {
             val arr = org.json.JSONArray(body)
             if (arr.length() == 0) return null
 
-            val first = arr.optJSONObject(0) ?: return null
+            var best: org.json.JSONObject? = null
+            var bestScore = Int.MIN_VALUE
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                var score = 0
+                // Artist match is the strongest signal.
+                val resultArtist = obj.optString("artistName", "")
+                if (!artist.isNullOrBlank() && resultArtist.isNotBlank()) {
+                    val a = artist.lowercase()
+                    val r = resultArtist.lowercase()
+                    if (a == r) score += 100
+                    else if (r.contains(a) || a.contains(r)) score += 50
+                }
+                // Duration within tolerance strongly suggests the right version.
+                val resultDuration = obj.optDouble("duration", -1.0)
+                if (durationSec != null && durationSec > 0 && resultDuration >= 0) {
+                    val diff = kotlin.math.abs(resultDuration - durationSec)
+                    if (diff <= DURATION_TOLERANCE_SEC) score += 75
+                    else score -= 25
+                }
+                // Prefer synced lyrics.
+                if (obj.optString("syncedLyrics", "").isNotBlank()) score += 10
+                if (score > bestScore) {
+                    bestScore = score
+                    best = obj
+                }
+            }
+
+            val first = best ?: return null
             val synced = first.optString("syncedLyrics", "")
             if (synced.isNotBlank()) {
                 val lines = parseLrc(synced)
@@ -149,8 +188,8 @@ class LyricsRepository @Inject constructor() {
     /**
      * Legacy: returns plain text only (for backward compatibility).
      */
-    suspend fun getPlainLyrics(artist: String, title: String): String? {
-        return when (val result = getLyrics(artist, title)) {
+    suspend fun getPlainLyrics(artist: String, title: String, durationSec: Long? = null): String? {
+        return when (val result = getLyrics(artist, title, durationSec)) {
             is LyricsResult.Plain -> result.text
             is LyricsResult.Synced -> result.lines.joinToString("\n") { it.text }
             LyricsResult.NotFound -> null
