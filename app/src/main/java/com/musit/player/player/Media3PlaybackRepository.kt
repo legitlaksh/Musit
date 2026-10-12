@@ -131,8 +131,9 @@ class Media3PlaybackRepository @Inject constructor(
      * Secondary player used only for genuine overlapping crossfades.
      * handleAudioFocus=false so the two players never fight over audio focus.
      */
-    private val xfadePlayer: ExoPlayer by lazy {
-        ExoPlayer.Builder(appContext)
+    private var _xfadePlayer: ExoPlayer? = null
+    private val xfadePlayer: ExoPlayer
+        get() = _xfadePlayer ?: ExoPlayer.Builder(appContext)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -141,8 +142,10 @@ class Media3PlaybackRepository @Inject constructor(
                 false
             )
             .build()
-            .also { it.addListener(xfadeListener) }
-    }
+            .also {
+                it.addListener(xfadeListener)
+                _xfadePlayer = it
+            }
 
     /** The player that is currently audible (or should be, pre-handoff). */
     private fun activePlayer(): Player? = if (xfadeActive) xfadePlayer else controller
@@ -151,8 +154,7 @@ class Media3PlaybackRepository @Inject constructor(
      * The secondary player only if a fade has actually created it; avoids
      * needlessly spinning up a second ExoPlayer on pause/cancel paths.
      */
-    private fun xfadePlayerOrNull(): ExoPlayer? =
-        if (this::xfadePlayer.isInitialized) xfadePlayer else null
+    private fun xfadePlayerOrNull(): ExoPlayer? = _xfadePlayer
 
     // ------------------------------------------------------------------
     // queue model
@@ -211,7 +213,7 @@ class Media3PlaybackRepository @Inject constructor(
                 controller?.addListener(playerListener)
                 // Assign both session flows when the controller connects (fixes the
                 // never-assigned _audioSessionId and seeds the crossfade-aware one).
-                val sessionId = controller?.audioSessionId ?: 0
+                val sessionId = PlayerService.audioSessionId
                 _audioSessionId.value = sessionId
                 _activeAudioSessionId.value = sessionId
                 startPolling()
@@ -276,7 +278,7 @@ class Media3PlaybackRepository @Inject constructor(
             crossfading = false
             xfadeActive = false
             xfadePlayerOrNull()?.stop()
-            _activeAudioSessionId.value = controller?.audioSessionId ?: 0
+            _activeAudioSessionId.value = PlayerService.audioSessionId
             controller?.volume = 1f
         }
         if (queueSongs.isEmpty() || queueIndex < 0) return
@@ -531,7 +533,7 @@ class Media3PlaybackRepository @Inject constructor(
         if (xfadeActive) {
             xfadeActive = false
             xfadePlayerOrNull()?.stop()
-            _activeAudioSessionId.value = controller?.audioSessionId ?: 0
+            _activeAudioSessionId.value = PlayerService.audioSessionId
         }
         controller?.volume = 1f
     }
@@ -617,7 +619,7 @@ class Media3PlaybackRepository @Inject constructor(
         if (!xfadeActive) return
         xfadeActive = false
         xfadePlayer.stop()
-        _activeAudioSessionId.value = controller?.audioSessionId ?: 0
+        _activeAudioSessionId.value = PlayerService.audioSessionId
         advance()
     }
 
