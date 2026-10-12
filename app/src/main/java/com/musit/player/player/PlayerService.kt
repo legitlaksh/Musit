@@ -3,6 +3,7 @@ package com.musit.player.player
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Bundle
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
@@ -145,6 +146,31 @@ class PlayerService : MediaSessionService() {
             }
             return super.onCustomCommand(session, controller, customCommand, args)
         }
+
+        /**
+         * The session's ExoPlayer holds only one media item (the app queue lives
+         * in Media3PlaybackRepository), so route the standard Next/Previous
+         * notification buttons through the repository's queue instead.
+         */
+        override fun onPlayerCommandRequest(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            @Player.Command playerCommand: Int
+        ): ListenableFuture<SessionResult> {
+            if (playerCommand == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) {
+                serviceScope.launch {
+                    runCatching { playbackRepository.get().next() }
+                }
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+            if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) {
+                serviceScope.launch {
+                    runCatching { playbackRepository.get().previous() }
+                }
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+            return super.onPlayerCommandRequest(session, controller, playerCommand)
+        }
     }
 
     /**
@@ -238,6 +264,7 @@ class PlayerService : MediaSessionService() {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 broadcastWidgetUpdate()
+                updateCustomLayout()
             }
         })
         session = MediaSession.Builder(this, exoPlayer)
