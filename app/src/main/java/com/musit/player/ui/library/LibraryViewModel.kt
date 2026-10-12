@@ -6,7 +6,9 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.musit.player.data.local.DownloadEntity
 import com.musit.player.data.local.LocalMusicScanner
+import com.musit.player.data.repository.DownloadRepository
 import com.musit.player.data.repository.LibraryRepository
 import com.musit.player.data.repository.MusicRepository
 import com.musit.player.data.repository.PlaylistInfo
@@ -30,6 +32,7 @@ class LibraryViewModel @Inject constructor(
     private val music: MusicRepository,
     private val scanner: LocalMusicScanner,
     val playback: PlaybackRepository,
+    private val downloadRepository: DownloadRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -58,6 +61,31 @@ class LibraryViewModel @Inject constructor(
 
     private val _localLoading = MutableStateFlow(false)
     val localLoading: StateFlow<Boolean> = _localLoading.asStateFlow()
+
+    // ------------------------------------------------------------------
+    // offline downloads
+    // ------------------------------------------------------------------
+
+    val downloads: StateFlow<List<DownloadEntity>> =
+        downloadRepository.observeDownloads()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun deleteDownload(songId: String) {
+        viewModelScope.launch { downloadRepository.removeDownload(songId) }
+    }
+
+    /** Plays a downloaded song; the rest of the downloads list becomes the queue. */
+    fun playDownload(download: DownloadEntity, all: List<DownloadEntity>) {
+        val songs = all.map { entity ->
+            Song(
+                id = entity.songId,
+                title = entity.title,
+                artist = entity.artist,
+                artworkUrl = entity.artworkUrl
+            )
+        }
+        playback.playQueue(songs, all.indexOf(download).coerceAtLeast(0))
+    }
 
     fun hasAudioPermission(): Boolean {
         val permission = if (Build.VERSION.SDK_INT >= 33) {
