@@ -51,3 +51,18 @@ data class PlaylistSongCrossRef(
     val artist: String,
     val artworkUrl: String?
 )
+
+/**
+ * A song downloaded for offline listening. [fileName] is the audio file
+ * inside the app-private "downloads" directory (see DownloadRepository).
+ */
+@Entity(tableName = "downloads")
+data class DownloadEntity(
+    @PrimaryKey val songId: String,
+    val title: String,
+    val artist: String,
+    val artworkUrl: String?,
+    val fileName: String,
+    val downloadedAt: Long,
+    val sizeBytes: Long
+)
