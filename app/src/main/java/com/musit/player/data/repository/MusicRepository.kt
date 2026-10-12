@@ -58,4 +58,25 @@ class MusicRepository @Inject constructor(
     fun localUri(songId: String): String? = localUris[songId]
 
     fun isLocal(song: Song): Boolean = song.id.startsWith("local:")
+
+    /**
+     * Offline-download lookup, wired up by the downloads feature at startup
+     * (see DownloadRepository). Returns a file:// URI for [songId] when the
+     * song has been downloaded, else null. Kept as a settable hook instead
+     * of a direct dependency to avoid a DI cycle.
+     */
+    var downloadedFileUriProvider: (suspend (songId: String) -> String?)? = null
+
+    /**
+     * Best playable URIs for [song], in preference order:
+     * 1. offline download (file://), 2. on-device local song, 3. network stream URLs.
+     * Used by the playback repository for both normal and crossfade playback.
+     */
+    suspend fun resolvePlayableUris(song: Song): List<String> {
+        downloadedFileUriProvider?.invoke(song.id)?.let { return listOf(it) }
+        if (isLocal(song)) {
+            return listOfNotNull(localUri(song.id))
+        }
+        return streamUrls(song.id).getOrNull().orEmpty()
+    }
 }
