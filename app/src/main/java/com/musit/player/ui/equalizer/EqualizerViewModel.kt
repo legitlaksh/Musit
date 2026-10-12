@@ -8,12 +8,13 @@ import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Provides the audio session ID for the Equalizer.
- * Uses the real ExoPlayer audio session from PlayerService.
+ * Follows the live audio session from the playback repository (which tracks
+ * the MediaController's audio session, including session changes) instead of
+ * snapshotting a static value at ViewModel creation.
  */
 @HiltViewModel
-class EqualizerViewModel @Inject constructor() : ViewModel() {
-    // Real audio session from PlayerService's ExoPlayer
-    val audioSessionId: StateFlow<Int> = kotlinx.coroutines.flow.MutableStateFlow(
-        com.musit.player.player.PlayerService.audioSessionId
-    )
+class EqualizerViewModel @Inject constructor(
+    private val playback: PlaybackRepository
+) : ViewModel() {
+    val audioSessionId: StateFlow<Int> = playback.activeAudioSessionId
 }
