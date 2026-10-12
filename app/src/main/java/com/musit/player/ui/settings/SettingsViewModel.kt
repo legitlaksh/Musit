@@ -36,12 +36,30 @@ class SettingsViewModel @Inject constructor(
             viewModelScope, SharingStarted.WhileSubscribed(5000), AudioQuality.HIGH
         )
 
+    val crossfadeEnabled: StateFlow<Boolean> =
+        settings.crossfadeEnabled.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), true
+        )
+
+    val crossfadeDurationSec: StateFlow<Int> =
+        settings.crossfadeDurationSec.stateIn(
+            viewModelScope, SharingStarted.WhileSubscribed(5000), 5
+        )
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
     }
 
     fun setAudioQuality(quality: AudioQuality) {
         viewModelScope.launch { settings.setAudioQuality(quality) }
+    }
+
+    fun setCrossfadeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setCrossfadeEnabled(enabled) }
+    }
+
+    fun setCrossfadeDurationSec(seconds: Int) {
+        viewModelScope.launch { settings.setCrossfadeDurationSec(seconds) }
     }
 
     fun clearSearchHistory() {
