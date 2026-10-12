@@ -55,7 +55,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +75,6 @@ import coil.compose.AsyncImage
 import com.musit.player.data.repository.LyricsResult
 import com.musit.player.player.RepeatMode
 import com.musit.player.ui.formatMs
-import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
@@ -147,7 +145,7 @@ fun PlayerScreen(
     val context = LocalContext.current
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
+    val downloadMessage by viewModel.downloadMessage.collectAsStateWithLifecycle()
 
     fun shareSong() {
         current?.let { song ->
@@ -167,7 +165,15 @@ fun PlayerScreen(
 
     // Load lyrics when song changes
     LaunchedEffect(current?.id) {
-        current?.let { viewModel.loadLyrics(it.artist, it.title) }
+        current?.let { viewModel.loadLyrics(it) }
+    }
+
+    // One-shot download status messages
+    LaunchedEffect(downloadMessage) {
+        downloadMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearDownloadMessage()
+        }
     }
 
     Box(
@@ -288,11 +294,7 @@ fun PlayerScreen(
                             .size(58.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .background(Color.White)
-                            .clickable {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Downloads coming soon")
-                                }
-                            },
+                            .clickable { current?.let { viewModel.downloadSong(it) } },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
