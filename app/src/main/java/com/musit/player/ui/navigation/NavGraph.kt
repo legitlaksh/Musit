@@ -44,7 +44,7 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val SEARCH = "search?query={query}"
-    const val LIBRARY = "library"
+    const val LIBRARY = "library?tab={tab}"
     const val SETTINGS = "settings"
     const val PLAYER = "player"
     const val QUEUE = "queue"
@@ -55,6 +55,10 @@ object Routes {
     fun playlist(playlistId: Long) = "playlist/$playlistId"
     fun search(query: String) = "search?query=$query"
     fun artist(artistName: String) = "artist/$artistName"
+
+    /** Library route, optionally opening on a specific tab ("Downloads", ...). */
+    fun library(tab: String? = null): String =
+        if (tab == null) "library" else "library?tab=$tab"
 }
 
 private data class BottomTab(val route: String, val label: String, val icon: ImageVector)
@@ -119,7 +123,9 @@ fun MusitNavGraph(
                             NavigationBarItem(
                                 selected = currentRoute == tab.route,
                                 onClick = {
-                                    navController.navigate(tab.route) {
+                                    // Navigate with concrete argument values (no "{...}" placeholders).
+                                    val target = if (tab.route == Routes.LIBRARY) Routes.library() else tab.route
+                                    navController.navigate(target) {
                                         popUpTo(Routes.HOME)
                                         launchSingleTop = true
                                     }
@@ -180,7 +186,7 @@ fun MusitNavGraph(
                         navController.navigate(Routes.search(mood))
                     },
                     onDownloadsClick = {
-                        navController.navigate(Routes.LIBRARY)
+                        navController.navigate(Routes.library("Downloads"))
                     }
                 )
             }
@@ -200,13 +206,22 @@ fun MusitNavGraph(
                     initialQuery = initialQuery
                 )
             }
-            composable(Routes.LIBRARY) {
+            composable(
+                route = Routes.LIBRARY,
+                arguments = listOf(navArgument("tab") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                })
+            ) { entry ->
+                val startTab = entry.arguments?.getString("tab")
+                    ?.takeIf { it.isNotBlank() }
                 LibraryScreen(
                     onSongClick = ::playAndOpenPlayer,
                     onPlayNext = mainViewModel::playNext,
                     onAddToPlaylist = mainViewModel::requestAddToPlaylist,
                     onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
-                    onSearchClick = { navController.navigate(Routes.SEARCH) }
+                    onSearchClick = { navController.navigate(Routes.SEARCH) },
+                    initialTab = startTab
                 )
             }
             composable(Routes.SETTINGS) {
