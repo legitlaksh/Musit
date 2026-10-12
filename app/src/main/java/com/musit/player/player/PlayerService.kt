@@ -156,18 +156,18 @@ class PlayerService : MediaSessionService() {
             session: MediaSession,
             controller: MediaSession.ControllerInfo,
             @Player.Command playerCommand: Int
-        ): ListenableFuture<SessionResult> {
+        ): Int {
             if (playerCommand == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) {
                 serviceScope.launch {
                     runCatching { playbackRepository.get().next() }
                 }
-                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                return SessionResult.RESULT_SUCCESS
             }
             if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) {
                 serviceScope.launch {
                     runCatching { playbackRepository.get().previous() }
                 }
-                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                return SessionResult.RESULT_SUCCESS
             }
             return super.onPlayerCommandRequest(session, controller, playerCommand)
         }
